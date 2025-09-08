@@ -1,11 +1,9 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Shield, 
   Bot, 
   Users, 
   FileText, 
-  Clock, 
   CheckCircle,
   ArrowRight,
   Stethoscope,
