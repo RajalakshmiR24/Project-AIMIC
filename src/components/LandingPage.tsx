@@ -159,10 +159,10 @@ const LandingPage = () => {
                 <span>Start Your Claim</span>
                 <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <button className="group border-2 border-gray-300 text-gray-700 px-10 py-5 rounded-2xl font-bold text-lg hover:border-blue-500 hover:text-blue-600 transition-all duration-300 flex items-center justify-center space-x-3">
+              {/* <button className="group border-2 border-gray-300 text-gray-700 px-10 py-5 rounded-2xl font-bold text-lg hover:border-blue-500 hover:text-blue-600 transition-all duration-300 flex items-center justify-center space-x-3">
                 <Play className="w-6 h-6" />
                 <span>Watch Demo</span>
-              </button>
+              </button> */}
             </div>
 
             {/* Trust Indicators */}
