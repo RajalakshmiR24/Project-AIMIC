@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Shield, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import type { LoginCredentials } from "../../api/api";
-import { decodeRoleFromToken, roleToPath } from "../../utils/jwt";
+import {  roleToPath } from "../../utils/jwt";
 
 const LoginPage = () => {
   const [formData, setFormData] = useState<LoginCredentials>({ email: "", password: "" });
@@ -14,7 +14,6 @@ const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || null;
 
 const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();

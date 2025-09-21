@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { api } from "../api/api";
-import type { LoginCredentials, RegisterData, User } from "../api/api";
+import type { LoginCredentials, RegisterData } from "../api/api";
 import { decodeRoleFromToken } from "../utils/jwt";
 
 export interface AuthContextType {
