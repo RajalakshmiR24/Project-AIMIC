@@ -1,55 +1,77 @@
 import React, { useState } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  Building2,
+import {
+  Home,
+  FileText,
+  CheckCircle,
+  AlertCircle,
   TrendingUp,
-  Users,
-  DollarSign,
   Search,
-  Filter,
-  Eye,
   Download,
   X,
-  Clock,
   MessageSquare,
   BarChart3,
-  Calendar,
-  UserCheck,
-  XCircle
+  XCircle,
+  Eye,
+  DollarSign
 } from 'lucide-react';
 import PortalLayout from '../shared/PortalLayout';
 
+// ---------- Shared helpers (hoisted so all routes can use them) ----------
+const getPriorityColor = (priority) => {
+  switch (priority) {
+    case 'urgent':
+      return 'bg-red-100 text-red-800';
+    case 'high':
+      return 'bg-orange-100 text-orange-800';
+    case 'low':
+      return 'bg-green-100 text-green-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+const getRiskColor = (risk) => {
+  switch (risk) {
+    case 'high':
+      return 'text-red-600';
+    case 'medium':
+      return 'text-yellow-600';
+    case 'low':
+      return 'text-green-600';
+    default:
+      return 'text-gray-600';
+  }
+};
+
+// --------------------------- Dashboard ---------------------------
 const InsuranceDashboard = () => {
   const [pendingClaims, setPendingClaims] = useState([
-    { 
-      id: 'CL001', 
-      employee: 'John Doe', 
-      type: 'Outpatient', 
-      amount: '$1,250', 
+    {
+      id: 'CL001',
+      employee: 'John Doe',
+      type: 'Outpatient',
+      amount: '$1,250',
       priority: 'high',
       submittedDate: '2025-01-15',
       aiScore: 92,
       riskLevel: 'low'
     },
-    { 
-      id: 'CL002', 
-      employee: 'Jane Smith', 
-      type: 'Prescription', 
-      amount: '$85', 
+    {
+      id: 'CL002',
+      employee: 'Jane Smith',
+      type: 'Prescription',
+      amount: '$85',
       priority: 'low',
       submittedDate: '2025-01-10',
       aiScore: 88,
       riskLevel: 'low'
     },
-    { 
-      id: 'CL003', 
-      employee: 'Mike Johnson', 
-      type: 'Emergency', 
-      amount: '$3,500', 
+    {
+      id: 'CL003',
+      employee: 'Mike Johnson',
+      type: 'Emergency',
+      amount: '$3,500',
       priority: 'urgent',
       submittedDate: '2025-01-08',
       aiScore: 76,
@@ -60,58 +82,53 @@ const InsuranceDashboard = () => {
   const [selectedClaim, setSelectedClaim] = useState(null);
   const [showClaimDetails, setShowClaimDetails] = useState(false);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800';
-      case 'high': return 'bg-orange-100 text-orange-800';
-      case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+  const handleApproveClaim = (claimId) => {
+    if (window.confirm(`Are you sure you want to approve claim ${claimId}?`)) {
+      setPendingClaims((prev) => prev.filter((claim) => claim.id !== claimId));
+      window.alert(
+        `Claim ${claimId} approved successfully! Payment will be processed within 24 hours.`
+      );
     }
   };
 
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'high': return 'text-red-600';
-      case 'medium': return 'text-yellow-600';
-      case 'low': return 'text-green-600';
-      default: return 'text-gray-600';
-    }
-  };
-
-  const handleApproveClaim = (claimId: string) => {
-    if (confirm(`Are you sure you want to approve claim ${claimId}?`)) {
-      setPendingClaims(prev => prev.filter(claim => claim.id !== claimId));
-      alert(`Claim ${claimId} approved successfully! Payment will be processed within 24 hours.`);
-    }
-  };
-
-  const handleRejectClaim = (claimId: string) => {
-    const reason = prompt('Please provide a reason for rejection:');
+  const handleRejectClaim = (claimId) => {
+    const reason = window.prompt('Please provide a reason for rejection:');
     if (reason) {
-      setPendingClaims(prev => prev.filter(claim => claim.id !== claimId));
-      alert(`Claim ${claimId} rejected. Notification sent to employee with reason: "${reason}"`);
+      setPendingClaims((prev) => prev.filter((claim) => claim.id !== claimId));
+      window.alert(
+        `Claim ${claimId} rejected. Notification sent to employee with reason: "${reason}"`
+      );
     }
   };
 
-  const handleRequestMoreInfo = (claimId: string) => {
-    const message = prompt('What additional information do you need?');
+  const handleRequestMoreInfo = (claimId) => {
+    const message = window.prompt('What additional information do you need?');
     if (message) {
-      alert(`Information request sent for claim ${claimId}: "${message}"`);
+      window.alert(`Information request sent for claim ${claimId}: "${message}"`);
     }
   };
 
-  const handleViewDetails = (claim: any) => {
+  const handleViewDetails = (claim) => {
     setSelectedClaim(claim);
     setShowClaimDetails(true);
   };
 
   const handleBulkApprove = () => {
-    const lowRiskClaims = pendingClaims.filter(claim => claim.riskLevel === 'low' && claim.aiScore >= 85);
-    if (lowRiskClaims.length > 0 && confirm(`Approve ${lowRiskClaims.length} low-risk claims with high AI scores?`)) {
-      setPendingClaims(prev => prev.filter(claim => !(claim.riskLevel === 'low' && claim.aiScore >= 85)));
-      alert(`${lowRiskClaims.length} claims approved in bulk!`);
+    const lowRiskClaims = pendingClaims.filter(
+      (claim) => claim.riskLevel === 'low' && claim.aiScore >= 85
+    );
+    if (
+      lowRiskClaims.length > 0 &&
+      window.confirm(
+        `Approve ${lowRiskClaims.length} low-risk claims with high AI scores?`
+      )
+    ) {
+      setPendingClaims((prev) =>
+        prev.filter((claim) => !(claim.riskLevel === 'low' && claim.aiScore >= 85))
+      );
+      window.alert(`${lowRiskClaims.length} claims approved in bulk!`);
     } else {
-      alert('No eligible claims for bulk approval.');
+      window.alert('No eligible claims for bulk approval.');
     }
   };
 
@@ -168,7 +185,7 @@ const InsuranceDashboard = () => {
         </div>
         <div className="p-6">
           <div className="grid md:grid-cols-4 gap-4">
-            <button 
+            <button
               onClick={handleBulkApprove}
               className="flex items-center space-x-3 p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl hover:from-green-100 hover:to-green-200 transition-all duration-300 group border border-green-200"
             >
@@ -178,8 +195,8 @@ const InsuranceDashboard = () => {
                 <span className="text-xs text-green-600">Low-risk claims</span>
               </div>
             </button>
-            <button 
-              onClick={() => alert('Opening analytics dashboard...')}
+            <button
+              onClick={() => window.alert('Opening analytics dashboard...')}
               className="flex items-center space-x-3 p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl hover:from-blue-100 hover:to-blue-200 transition-all duration-300 group border border-blue-200"
             >
               <BarChart3 className="w-6 h-6 text-blue-600" />
@@ -188,8 +205,8 @@ const InsuranceDashboard = () => {
                 <span className="text-xs text-blue-600">Performance metrics</span>
               </div>
             </button>
-            <button 
-              onClick={() => alert('Generating monthly report...')}
+            <button
+              onClick={() => window.alert('Generating monthly report...')}
               className="flex items-center space-x-3 p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl hover:from-purple-100 hover:to-purple-200 transition-all duration-300 group border border-purple-200"
             >
               <FileText className="w-6 h-6 text-purple-600" />
@@ -198,8 +215,8 @@ const InsuranceDashboard = () => {
                 <span className="text-xs text-purple-600">Monthly summary</span>
               </div>
             </button>
-            <button 
-              onClick={() => alert('Opening fraud detection dashboard...')}
+            <button
+              onClick={() => window.alert('Opening fraud detection dashboard...')}
               className="flex items-center space-x-3 p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-xl hover:from-red-100 hover:to-red-200 transition-all duration-300 group border border-red-200"
             >
               <AlertCircle className="w-6 h-6 text-red-600" />
@@ -218,8 +235,8 @@ const InsuranceDashboard = () => {
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Claims Requiring Review</h2>
             <div className="flex space-x-3">
-              <button 
-                onClick={() => alert('Exporting claims data...')}
+              <button
+                onClick={() => window.alert('Exporting claims data...')}
                 className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1"
               >
                 <Download className="w-4 h-4" />
@@ -246,7 +263,7 @@ const InsuranceDashboard = () => {
                         <span className="text-sm text-gray-600">AI Score:</span>
                         <div className="flex items-center space-x-1">
                           <div className="w-16 bg-gray-200 rounded-full h-2">
-                            <div 
+                            <div
                               className={`h-2 rounded-full ${claim.aiScore >= 90 ? 'bg-green-500' : claim.aiScore >= 80 ? 'bg-yellow-500' : 'bg-red-500'}`}
                               style={{ width: `${claim.aiScore}%` }}
                             ></div>
@@ -267,9 +284,9 @@ const InsuranceDashboard = () => {
                     <p className="text-sm text-gray-600">Submitted: {claim.submittedDate}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-between items-center">
-                  <button 
+                  <button
                     onClick={() => handleViewDetails(claim)}
                     className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
                   >
@@ -277,21 +294,21 @@ const InsuranceDashboard = () => {
                     <span>Review Details</span>
                   </button>
                   <div className="flex space-x-3">
-                    <button 
+                    <button
                       onClick={() => handleRequestMoreInfo(claim.id)}
                       className="flex items-center space-x-1 text-orange-600 hover:text-orange-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-orange-50 transition-colors"
                     >
                       <MessageSquare className="w-4 h-4" />
                       <span>Request Info</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleRejectClaim(claim.id)}
                       className="flex items-center space-x-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm"
                     >
                       <XCircle className="w-4 h-4" />
                       <span>Reject</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleApproveClaim(claim.id)}
                       className="flex items-center space-x-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                     >
@@ -313,7 +330,7 @@ const InsuranceDashboard = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-900">Claim Review - {selectedClaim.id}</h3>
-                <button 
+                <button
                   onClick={() => setShowClaimDetails(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -333,14 +350,15 @@ const InsuranceDashboard = () => {
                       <p><span className="font-medium text-gray-700">Policy Type:</span> Premium Health</p>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">Claim Details</h4>
                     <div className="space-y-2 text-sm bg-gray-50 p-4 rounded-lg">
                       <p><span className="font-medium text-gray-700">Type:</span> {selectedClaim.type}</p>
                       <p><span className="font-medium text-gray-700">Amount:</span> {selectedClaim.amount}</p>
                       <p><span className="font-medium text-gray-700">Submitted:</span> {selectedClaim.submittedDate}</p>
-                      <p><span className="font-medium text-gray-700">Priority:</span> 
+                      <p>
+                        <span className="font-medium text-gray-700">Priority:</span>
                         <span className={`ml-2 px-2 py-1 text-xs rounded-full ${getPriorityColor(selectedClaim.priority)}`}>
                           {selectedClaim.priority}
                         </span>
@@ -348,7 +366,7 @@ const InsuranceDashboard = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">AI Analysis</h4>
@@ -358,7 +376,7 @@ const InsuranceDashboard = () => {
                         <span className="text-lg font-bold text-blue-600">{selectedClaim.aiScore}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className={`h-2 rounded-full ${selectedClaim.aiScore >= 90 ? 'bg-green-500' : selectedClaim.aiScore >= 80 ? 'bg-yellow-500' : 'bg-red-500'}`}
                           style={{ width: `${selectedClaim.aiScore}%` }}
                         ></div>
@@ -377,11 +395,13 @@ const InsuranceDashboard = () => {
                       </div>
                       <div className="flex items-center space-x-3 text-sm">
                         <AlertCircle className={`w-5 h-5 ${getRiskColor(selectedClaim.riskLevel)}`} />
-                        <span className="text-gray-700">Risk Level: <span className={getRiskColor(selectedClaim.riskLevel)}>{selectedClaim.riskLevel}</span></span>
+                        <span className="text-gray-700">
+                          Risk Level: <span className={getRiskColor(selectedClaim.riskLevel)}>{selectedClaim.riskLevel}</span>
+                        </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">Documents</h4>
                     <div className="space-y-2">
@@ -392,14 +412,14 @@ const InsuranceDashboard = () => {
                             <span className="text-sm text-gray-700">{doc}</span>
                           </div>
                           <div className="flex space-x-2">
-                            <button 
-                              onClick={() => alert(`Viewing ${doc}...`)}
+                            <button
+                              onClick={() => window.alert(`Viewing ${doc}...`)}
                               className="text-blue-600 hover:text-blue-700 text-sm p-1 rounded"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button 
-                              onClick={() => alert(`Downloading ${doc}...`)}
+                            <button
+                              onClick={() => window.alert(`Downloading ${doc}...`)}
                               className="text-green-600 hover:text-green-700 text-sm p-1 rounded"
                             >
                               <Download className="w-4 h-4" />
@@ -411,9 +431,9 @@ const InsuranceDashboard = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                <button 
+                <button
                   onClick={() => {
                     handleRequestMoreInfo(selectedClaim.id);
                     setShowClaimDetails(false);
@@ -423,7 +443,7 @@ const InsuranceDashboard = () => {
                   <MessageSquare className="w-4 h-4" />
                   <span>Request More Info</span>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     handleRejectClaim(selectedClaim.id);
                     setShowClaimDetails(false);
@@ -433,7 +453,7 @@ const InsuranceDashboard = () => {
                   <XCircle className="w-4 h-4" />
                   <span>Reject Claim</span>
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     handleApproveClaim(selectedClaim.id);
                     setShowClaimDetails(false);
@@ -452,33 +472,34 @@ const InsuranceDashboard = () => {
   );
 };
 
+// --------------------------- Review ---------------------------
 const ClaimReview = () => {
   const [claims, setClaims] = useState([
-    { 
-      id: 'CL001', 
-      employee: 'John Doe', 
-      type: 'Outpatient', 
-      amount: '$1,250', 
+    {
+      id: 'CL001',
+      employee: 'John Doe',
+      type: 'Outpatient',
+      amount: '$1,250',
       status: 'pending',
       submittedDate: '2025-01-15',
       aiScore: 92,
       riskLevel: 'low'
     },
-    { 
-      id: 'CL002', 
-      employee: 'Jane Smith', 
-      type: 'Prescription', 
-      amount: '$85', 
+    {
+      id: 'CL002',
+      employee: 'Jane Smith',
+      type: 'Prescription',
+      amount: '$85',
       status: 'pending',
       submittedDate: '2025-01-10',
       aiScore: 88,
       riskLevel: 'low'
     },
-    { 
-      id: 'CL003', 
-      employee: 'Mike Johnson', 
-      type: 'Emergency', 
-      amount: '$3,500', 
+    {
+      id: 'CL003',
+      employee: 'Mike Johnson',
+      type: 'Emergency',
+      amount: '$3,500',
       status: 'pending',
       submittedDate: '2025-01-08',
       aiScore: 76,
@@ -490,36 +511,42 @@ const ClaimReview = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [riskFilter, setRiskFilter] = useState('all');
 
-  const filteredClaims = claims.filter(claim => {
-    const matchesSearch = claim.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.employee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.type.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredClaims = claims.filter((claim) => {
+    const s = searchTerm.toLowerCase();
+    const matchesSearch =
+      claim.id.toLowerCase().includes(s) ||
+      claim.employee.toLowerCase().includes(s) ||
+      claim.type.toLowerCase().includes(s);
     const matchesStatus = statusFilter === 'all' || claim.status === statusFilter;
     const matchesRisk = riskFilter === 'all' || claim.riskLevel === riskFilter;
     return matchesSearch && matchesStatus && matchesRisk;
   });
 
-  const handleBulkAction = (action: string) => {
-    const selectedClaims = filteredClaims.filter(claim => claim.riskLevel === 'low' && claim.aiScore >= 85);
+  const handleBulkAction = (action) => {
+    const selectedClaims = filteredClaims.filter(
+      (claim) => claim.riskLevel === 'low' && claim.aiScore >= 85
+    );
     if (action === 'approve' && selectedClaims.length > 0) {
-      if (confirm(`Bulk approve ${selectedClaims.length} low-risk claims?`)) {
-        setClaims(prev => prev.filter(claim => !(claim.riskLevel === 'low' && claim.aiScore >= 85)));
-        alert(`${selectedClaims.length} claims approved!`);
+      if (window.confirm(`Bulk approve ${selectedClaims.length} low-risk claims?`)) {
+        setClaims((prev) =>
+          prev.filter((claim) => !(claim.riskLevel === 'low' && claim.aiScore >= 85))
+        );
+        window.alert(`${selectedClaims.length} claims approved!`);
       }
     }
   };
 
-  const handleIndividualAction = (claimId: string, action: string) => {
+  const handleIndividualAction = (claimId, action) => {
     if (action === 'approve') {
-      if (confirm(`Approve claim ${claimId}?`)) {
-        setClaims(prev => prev.filter(claim => claim.id !== claimId));
-        alert(`Claim ${claimId} approved!`);
+      if (window.confirm(`Approve claim ${claimId}?`)) {
+        setClaims((prev) => prev.filter((claim) => claim.id !== claimId));
+        window.alert(`Claim ${claimId} approved!`);
       }
     } else if (action === 'reject') {
-      const reason = prompt('Reason for rejection:');
+      const reason = window.prompt('Reason for rejection:');
       if (reason) {
-        setClaims(prev => prev.filter(claim => claim.id !== claimId));
-        alert(`Claim ${claimId} rejected: ${reason}`);
+        setClaims((prev) => prev.filter((claim) => claim.id !== claimId));
+        window.alert(`Claim ${claimId} rejected: ${reason}`);
       }
     }
   };
@@ -560,7 +587,7 @@ const ClaimReview = () => {
               <option value="medium">Medium Risk</option>
               <option value="high">High Risk</option>
             </select>
-            <button 
+            <button
               onClick={() => handleBulkAction('approve')}
               className="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
             >
@@ -574,9 +601,7 @@ const ClaimReview = () => {
       {/* Claims List */}
       <div className="bg-white rounded-xl shadow-sm border">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Claims for Review ({filteredClaims.length})
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900">Claims for Review ({filteredClaims.length})</h2>
         </div>
         <div className="p-6">
           {filteredClaims.length > 0 ? (
@@ -607,21 +632,21 @@ const ClaimReview = () => {
                       <p className="text-sm text-gray-600">{claim.submittedDate}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end space-x-3">
-                    <button 
-                      onClick={() => alert(`Viewing details for ${claim.id}...`)}
+                    <button
+                      onClick={() => window.alert(`Viewing details for ${claim.id}...`)}
                       className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                     >
                       View Details
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleIndividualAction(claim.id, 'reject')}
                       className="text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
                     >
                       Reject
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleIndividualAction(claim.id, 'approve')}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                     >
@@ -643,34 +668,35 @@ const ClaimReview = () => {
   );
 };
 
+// --------------------------- Approved ---------------------------
 const ApprovedClaims = () => {
   const [approvedClaims] = useState([
-    { 
-      id: 'CL004', 
-      employee: 'Sarah Wilson', 
-      type: 'Dental', 
-      amount: '$450', 
+    {
+      id: 'CL004',
+      employee: 'Sarah Wilson',
+      type: 'Dental',
+      amount: '$450',
       approvedDate: '2025-01-14',
       paymentDate: '2025-01-15',
       approvedBy: 'System AI'
     },
-    { 
-      id: 'CL005', 
-      employee: 'David Brown', 
-      type: 'Vision', 
-      amount: '$320', 
+    {
+      id: 'CL005',
+      employee: 'David Brown',
+      type: 'Vision',
+      amount: '$320',
       approvedDate: '2025-01-13',
       paymentDate: '2025-01-14',
       approvedBy: 'John Smith'
     }
   ]);
 
-  const handleDownloadReport = (claimId: string) => {
-    alert(`Downloading approval report for ${claimId}...`);
+  const handleDownloadReport = (claimId) => {
+    window.alert(`Downloading approval report for ${claimId}...`);
   };
 
-  const handleViewPaymentDetails = (claimId: string) => {
-    alert(`Viewing payment details for ${claimId}...`);
+  const handleViewPaymentDetails = (claimId) => {
+    window.alert(`Viewing payment details for ${claimId}...`);
   };
 
   return (
@@ -679,8 +705,8 @@ const ApprovedClaims = () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Recently Approved Claims</h2>
-            <button 
-              onClick={() => alert('Exporting approved claims report...')}
+            <button
+              onClick={() => window.alert('Exporting approved claims report...')}
               className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1"
             >
               <Download className="w-4 h-4" />
@@ -702,22 +728,22 @@ const ApprovedClaims = () => {
                     <p className="text-sm text-gray-600">Approved: {claim.approvedDate}</p>
                   </div>
                 </div>
-                
+
                 <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
                   <div>
                     <p><span className="font-medium">Payment Date:</span> {claim.paymentDate}</p>
                     <p><span className="font-medium">Approved By:</span> {claim.approvedBy}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex justify-end space-x-3">
-                  <button 
+                  <button
                     onClick={() => handleDownloadReport(claim.id)}
                     className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                   >
                     Download Report
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleViewPaymentDetails(claim.id)}
                     className="text-green-600 hover:text-green-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
                   >
@@ -733,6 +759,7 @@ const ApprovedClaims = () => {
   );
 };
 
+// --------------------------- Analytics ---------------------------
 const Analytics = () => {
   const [timeRange, setTimeRange] = useState('30days');
 
@@ -746,11 +773,11 @@ const Analytics = () => {
   };
 
   const handleExportAnalytics = () => {
-    alert('Exporting analytics report...');
+    window.alert('Exporting analytics report...');
   };
 
   const handleGenerateReport = () => {
-    alert('Generating comprehensive analytics report...');
+    window.alert('Generating comprehensive analytics report...');
   };
 
   return (
@@ -773,14 +800,14 @@ const Analytics = () => {
               <option value="90days">Last 90 days</option>
               <option value="1year">Last year</option>
             </select>
-            <button 
+            <button
               onClick={handleExportAnalytics}
               className="text-green-600 hover:text-green-700 font-medium text-sm flex items-center space-x-1 px-3 py-2 border border-green-300 rounded-lg hover:bg-green-50 transition-colors"
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
             </button>
-            <button 
+            <button
               onClick={handleGenerateReport}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
             >
@@ -844,9 +871,10 @@ const Analytics = () => {
   );
 };
 
+// --------------------------- Shell ---------------------------
 const InsurancePortal = () => {
   const location = useLocation();
-  
+
   const menuItems = [
     { icon: <Home className="w-5 h-5" />, label: 'Dashboard', path: '/insurance' },
     { icon: <FileText className="w-5 h-5" />, label: 'Review Claims', path: '/insurance/review' },
@@ -855,12 +883,7 @@ const InsurancePortal = () => {
   ];
 
   return (
-    <PortalLayout 
-      title="Insurance Portal" 
-      menuItems={menuItems}
-      currentPath={location.pathname}
-      headerColor="bg-green-600"
-    >
+    <PortalLayout title="Insurance Portal" menuItems={menuItems} currentPath={location.pathname} headerColor="bg-green-600">
       <Routes>
         <Route path="/" element={<InsuranceDashboard />} />
         <Route path="/review" element={<ClaimReview />} />

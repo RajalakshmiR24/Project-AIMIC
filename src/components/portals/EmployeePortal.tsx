@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  FileText, 
-  Upload, 
-  Clock, 
-  User, 
-  Menu, 
+import {
+  Home,
+  FileText,
+  Upload,
+  Clock,
+  Menu,
   X,
   Plus,
   Eye,
@@ -18,41 +17,77 @@ import {
   Search,
   Filter,
   Calendar,
-  DollarSign
+  DollarSign,
+  ArrowRight
 } from 'lucide-react';
 import PortalLayout from '../shared/PortalLayout';
 import AIProcessingModal from '../ai/AIProcessingModal';
 import { AIAnalysisResult } from '../../services/aiService';
 
-const EmployeeDashboard = () => {
-  const [claims, setClaims] = useState([
+/* ----------------------------- Types ----------------------------- */
+type ClaimStatus = 'approved' | 'pending' | 'under_review';
+
+interface Claim {
+  id: string;
+  type: string;
+  amount: string; // display-formatted (e.g., "$1,250")
+  status: ClaimStatus;
+  date: string; // YYYY-MM-DD
+  description: string;
+  doctor?: string;
+  hospital?: string;
+  submittedDate?: string; // YYYY-MM-DD
+}
+
+interface UploadedDoc {
+  id: number;
+  name: string;
+  size: string;
+  date: string; // YYYY-MM-DD
+  type: string;
+  claimId: string | number;
+  file?: File;
+}
+
+/* ---------------------- Helper UI Utilities ---------------------- */
+const statusIcon = (status: ClaimStatus) => {
+  switch (status) {
+    case 'approved':
+      return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+    case 'pending':
+      return <Clock className="w-5 h-5 text-yellow-500" />;
+    case 'under_review':
+      return <AlertCircle className="w-5 h-5 text-blue-500" />;
+    default:
+      return <Clock className="w-5 h-5 text-gray-500" />;
+  }
+};
+
+const statusPillClass = (status: ClaimStatus) => {
+  switch (status) {
+    case 'approved':
+      return 'bg-green-100 text-green-800';
+    case 'pending':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'under_review':
+      return 'bg-blue-100 text-blue-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
+
+/* -------------------------- Dashboard --------------------------- */
+const EmployeeDashboard: React.FC = () => {
+  const [claims] = useState<Claim[]>([
     { id: 'CL001', type: 'Outpatient', amount: '$1,250', status: 'approved', date: '2025-01-15', description: 'Routine checkup and blood tests' },
     { id: 'CL002', type: 'Prescription', amount: '$85', status: 'pending', date: '2025-01-10', description: 'Monthly medication refill' },
     { id: 'CL003', type: 'Emergency', amount: '$3,500', status: 'under_review', date: '2025-01-08', description: 'Emergency room visit for chest pain' }
   ]);
 
-  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [showClaimDetails, setShowClaimDetails] = useState(false);
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'approved': return <CheckCircle2 className="w-5 h-5 text-green-500" />;
-      case 'pending': return <Clock className="w-5 h-5 text-yellow-500" />;
-      case 'under_review': return <AlertCircle className="w-5 h-5 text-blue-500" />;
-      default: return <Clock className="w-5 h-5 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'under_review': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const handleViewDetails = (claim: any) => {
+  const handleViewDetails = (claim: Claim) => {
     setSelectedClaim(claim);
     setShowClaimDetails(true);
   };
@@ -159,7 +194,7 @@ const EmployeeDashboard = () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Recent Claims</h2>
-            <Link 
+            <Link
               to="/employee/claims"
               className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
             >
@@ -173,7 +208,7 @@ const EmployeeDashboard = () => {
             {claims.slice(0, 3).map((claim) => (
               <div key={claim.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <div className="flex items-center space-x-4">
-                  {getStatusIcon(claim.status)}
+                  {statusIcon(claim.status)}
                   <div>
                     <p className="font-semibold text-gray-900">{claim.id}</p>
                     <p className="text-sm text-gray-600">{claim.type} • {claim.description}</p>
@@ -182,11 +217,11 @@ const EmployeeDashboard = () => {
                 <div className="flex items-center space-x-4">
                   <div className="text-right">
                     <p className="font-semibold text-gray-900">{claim.amount}</p>
-                    <span className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(claim.status)}`}>
+                    <span className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${statusPillClass(claim.status)}`}>
                       {claim.status.replace('_', ' ')}
                     </span>
                   </div>
-                  <button 
+                  <button
                     onClick={() => handleViewDetails(claim)}
                     className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                   >
@@ -206,7 +241,7 @@ const EmployeeDashboard = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-900">Claim Details - {selectedClaim.id}</h3>
-                <button 
+                <button
                   onClick={() => setShowClaimDetails(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -222,8 +257,8 @@ const EmployeeDashboard = () => {
                     <p><span className="font-medium">Type:</span> {selectedClaim.type}</p>
                     <p><span className="font-medium">Amount:</span> {selectedClaim.amount}</p>
                     <p><span className="font-medium">Date:</span> {selectedClaim.date}</p>
-                    <p><span className="font-medium">Status:</span> 
-                      <span className={`ml-2 px-2 py-1 text-xs rounded-full ${getStatusColor(selectedClaim.status)}`}>
+                    <p><span className="font-medium">Status:</span>
+                      <span className={`ml-2 px-2 py-1 text-xs rounded-full ${statusPillClass(selectedClaim.status)}`}>
                         {selectedClaim.status.replace('_', ' ')}
                       </span>
                     </p>
@@ -235,7 +270,7 @@ const EmployeeDashboard = () => {
                 </div>
               </div>
               <div className="flex justify-end space-x-3">
-                <button 
+                <button
                   onClick={() => handleDownloadReport(selectedClaim.id)}
                   className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -259,7 +294,8 @@ const EmployeeDashboard = () => {
   );
 };
 
-const SubmitClaim = () => {
+/* --------------------------- Submit Claim --------------------------- */
+const SubmitClaim: React.FC = () => {
   const [formData, setFormData] = useState({
     claimType: '',
     treatmentDate: '',
@@ -269,37 +305,44 @@ const SubmitClaim = () => {
     hospitalName: '',
     policyNumber: ''
   });
-  
-  const [uploadedFiles, setUploadedFiles] = useState([]);
+
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedDoc[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showAIProcessing, setShowAIProcessing] = useState(false);
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
+  const [generatedClaimId, setGeneratedClaimId] = useState<string | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newFiles = files.map(file => ({
+    const newFiles: UploadedDoc[] = files.map((file) => ({
       id: Date.now() + Math.random(),
       name: file.name,
       size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-      type: file.type,
-      file: file
+      type: file.type || 'Supporting Document',
+      file,
+      date: new Date().toISOString().split('T')[0],
+      claimId: 'General'
     }));
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
   };
 
   const removeFile = (fileId: number) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Start AI processing
+    setIsSubmitting(true);
+
+    const newId = 'CL' + Date.now().toString().slice(-6);
+    setGeneratedClaimId(newId);
+
+    // (Optional) construct data for the AI modal
     const claimData = {
-      id: 'CL' + Date.now().toString().slice(-6),
+      id: newId,
       type: formData.claimType,
-      amount: parseFloat(formData.amount),
+      amount: parseFloat(formData.amount) || 0,
       documents: uploadedFiles,
       patientInfo: { policyNumber: formData.policyNumber },
       treatmentDetails: {
@@ -309,7 +352,7 @@ const SubmitClaim = () => {
         hospital: formData.hospitalName
       }
     };
-    
+
     setShowAIProcessing(true);
   };
 
@@ -317,7 +360,8 @@ const SubmitClaim = () => {
     setAiResult(result);
     setShowAIProcessing(false);
     setShowSuccess(true);
-    
+    setIsSubmitting(false);
+
     // Reset form after 5 seconds
     setTimeout(() => {
       setShowSuccess(false);
@@ -332,6 +376,7 @@ const SubmitClaim = () => {
       });
       setUploadedFiles([]);
       setAiResult(null);
+      setGeneratedClaimId(null);
     }, 5000);
   };
 
@@ -358,17 +403,41 @@ const SubmitClaim = () => {
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Claim Submitted Successfully!</h2>
-          <p className="text-gray-600 mb-6">Your claim has been processed by our AI system with {aiResult?.confidence}% confidence. You will receive updates via email.</p>
+          <p className="text-gray-600 mb-6">
+            Your claim has been processed by our AI system with {aiResult?.confidence}% confidence. You will receive updates via email.
+          </p>
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <p className="text-sm text-gray-600">Claim ID: <span className="font-mono font-bold text-blue-600">CL{Date.now().toString().slice(-6)}</span></p>
+            <p className="text-sm text-gray-600">
+              Claim ID:{' '}
+              <span className="font-mono font-bold text-blue-600">
+                {generatedClaimId}
+              </span>
+            </p>
             {aiResult && (
               <div className="mt-3 space-y-2">
-                <p className="text-sm text-gray-600">AI Confidence: <span className="font-bold text-green-600">{aiResult.confidence}%</span></p>
-                <p className="text-sm text-gray-600">Risk Level: <span className={`font-bold ${
-                  aiResult.riskLevel === 'low' ? 'text-green-600' :
-                  aiResult.riskLevel === 'medium' ? 'text-yellow-600' : 'text-red-600'
-                }`}>{aiResult.riskLevel}</span></p>
-                <p className="text-sm text-gray-600">Processing Time: <span className="font-bold text-blue-600">{Math.floor(aiResult.processingTime / 60)}m {aiResult.processingTime % 60}s</span></p>
+                <p className="text-sm text-gray-600">
+                  AI Confidence: <span className="font-bold text-green-600">{aiResult.confidence}%</span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Risk Level:{' '}
+                  <span
+                    className={`font-bold ${
+                      aiResult.riskLevel === 'low'
+                        ? 'text-green-600'
+                        : aiResult.riskLevel === 'medium'
+                        ? 'text-yellow-600'
+                        : 'text-red-600'
+                    }`}
+                  >
+                    {aiResult.riskLevel}
+                  </span>
+                </p>
+                <p className="text-sm text-gray-600">
+                  Processing Time:{' '}
+                  <span className="font-bold text-blue-600">
+                    {Math.floor(aiResult.processingTime / 60)}m {aiResult.processingTime % 60}s
+                  </span>
+                </p>
               </div>
             )}
           </div>
@@ -380,13 +449,13 @@ const SubmitClaim = () => {
             <ArrowRight className="w-5 h-5" />
           </Link>
         </div>
-        
+
         {/* AI Processing Modal */}
         <AIProcessingModal
           isOpen={showAIProcessing}
           onClose={() => setShowAIProcessing(false)}
           claimData={{
-            id: 'temp',
+            id: generatedClaimId || 'temp',
             type: formData.claimType,
             amount: parseFloat(formData.amount) || 0,
             documents: uploadedFiles,
@@ -406,7 +475,7 @@ const SubmitClaim = () => {
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">Submit New Claim</h2>
             <div className="flex space-x-3">
-              <button 
+              <button
                 onClick={loadDraft}
                 className="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center space-x-1"
               >
@@ -416,31 +485,31 @@ const SubmitClaim = () => {
             </div>
           </div>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Policy Number *
               </label>
-              <input 
+              <input
                 type="text"
                 placeholder="Enter your policy number"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.policyNumber}
-                onChange={(e) => setFormData({...formData, policyNumber: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, policyNumber: e.target.value })}
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Claim Type *
               </label>
-              <select 
+              <select
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.claimType}
-                onChange={(e) => setFormData({...formData, claimType: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, claimType: e.target.value })}
                 required
               >
                 <option value="">Select claim type</option>
@@ -459,26 +528,26 @@ const SubmitClaim = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Treatment Date *
               </label>
-              <input 
+              <input
                 type="date"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.treatmentDate}
-                onChange={(e) => setFormData({...formData, treatmentDate: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, treatmentDate: e.target.value })}
                 required
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Claim Amount ($) *
               </label>
-              <input 
+              <input
                 type="number"
                 placeholder="0.00"
                 step="0.01"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.amount}
-                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                 required
               />
             </div>
@@ -489,25 +558,25 @@ const SubmitClaim = () => {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Doctor Name
               </label>
-              <input 
+              <input
                 type="text"
                 placeholder="Enter doctor's name"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.doctorName}
-                onChange={(e) => setFormData({...formData, doctorName: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, doctorName: e.target.value })}
               />
             </div>
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Hospital/Clinic Name
               </label>
-              <input 
+              <input
                 type="text"
                 placeholder="Enter hospital or clinic name"
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 value={formData.hospitalName}
-                onChange={(e) => setFormData({...formData, hospitalName: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, hospitalName: e.target.value })}
               />
             </div>
           </div>
@@ -516,12 +585,12 @@ const SubmitClaim = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Treatment Description *
             </label>
-            <textarea 
+            <textarea
               rows={4}
               placeholder="Describe your treatment, symptoms, and reason for claim"
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               required
             />
           </div>
@@ -535,15 +604,15 @@ const SubmitClaim = () => {
               <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
               <p className="text-gray-600 mb-2">Drop files here or click to browse</p>
               <p className="text-sm text-gray-500 mb-4">Supported: PDF, JPG, PNG (Max 10MB each)</p>
-              <input 
-                type="file" 
-                multiple 
-                className="hidden" 
+              <input
+                type="file"
+                multiple
+                className="hidden"
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={handleFileUpload}
                 id="file-upload"
               />
-              <label 
+              <label
                 htmlFor="file-upload"
                 className="inline-flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
               >
@@ -551,7 +620,7 @@ const SubmitClaim = () => {
                 <span>Choose Files</span>
               </label>
             </div>
-            
+
             {uploadedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
                 {uploadedFiles.map((file) => (
@@ -563,7 +632,7 @@ const SubmitClaim = () => {
                         <p className="text-xs text-gray-500">{file.size}</p>
                       </div>
                     </div>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => removeFile(file.id)}
                       className="text-red-600 hover:text-red-700 p-1 rounded transition-colors"
@@ -577,7 +646,7 @@ const SubmitClaim = () => {
           </div>
 
           <div className="flex justify-between">
-            <button 
+            <button
               type="button"
               onClick={saveDraft}
               className="flex items-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
@@ -585,23 +654,26 @@ const SubmitClaim = () => {
               <FileText className="w-4 h-4" />
               <span>Save Draft</span>
             </button>
-            <button 
+            <button
               type="submit"
               disabled={isSubmitting}
               className="flex items-center space-x-2 px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Process with AI</span>
+              <span>{isSubmitting ? 'Processing...' : 'Process with AI'}</span>
             </button>
           </div>
         </form>
-        
+
         {/* AI Processing Modal */}
         <AIProcessingModal
           isOpen={showAIProcessing}
-          onClose={() => setShowAIProcessing(false)}
+          onClose={() => {
+            setShowAIProcessing(false);
+            setIsSubmitting(false);
+          }}
           claimData={{
-            id: 'temp',
+            id: generatedClaimId || 'temp',
             type: formData.claimType,
             amount: parseFloat(formData.amount) || 0,
             documents: uploadedFiles,
@@ -620,35 +692,36 @@ const SubmitClaim = () => {
   );
 };
 
-const ViewClaims = () => {
-  const [claims, setClaims] = useState([
-    { 
-      id: 'CL001', 
-      type: 'Outpatient Treatment', 
-      amount: '$1,250', 
-      status: 'approved', 
+/* --------------------------- View Claims --------------------------- */
+const ViewClaims: React.FC = () => {
+  const [claims, setClaims] = useState<Claim[]>([
+    {
+      id: 'CL001',
+      type: 'Outpatient Treatment',
+      amount: '$1,250',
+      status: 'approved',
       date: '2025-01-15',
       doctor: 'Dr. Smith',
       hospital: 'City General Hospital',
       description: 'Routine checkup and blood tests',
       submittedDate: '2025-01-14'
     },
-    { 
-      id: 'CL002', 
-      type: 'Prescription Drugs', 
-      amount: '$85', 
-      status: 'pending', 
+    {
+      id: 'CL002',
+      type: 'Prescription Drugs',
+      amount: '$85',
+      status: 'pending',
       date: '2025-01-10',
       doctor: 'Dr. Johnson',
       hospital: 'Metro Pharmacy',
       description: 'Monthly medication refill',
       submittedDate: '2025-01-09'
     },
-    { 
-      id: 'CL003', 
-      type: 'Emergency Care', 
-      amount: '$3,500', 
-      status: 'under_review', 
+    {
+      id: 'CL003',
+      type: 'Emergency Care',
+      amount: '$3,500',
+      status: 'under_review',
       date: '2025-01-08',
       doctor: 'Dr. Wilson',
       hospital: 'Emergency Medical Center',
@@ -658,28 +731,23 @@ const ViewClaims = () => {
   ]);
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | ClaimStatus>('all');
+  const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
-  const filteredClaims = claims.filter(claim => {
-    const matchesSearch = claim.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         claim.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || claim.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredClaims = useMemo(() => {
+    return claims.filter((claim) => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch =
+        claim.id.toLowerCase().includes(q) ||
+        claim.type.toLowerCase().includes(q) ||
+        claim.description.toLowerCase().includes(q);
+      const matchesStatus = statusFilter === 'all' || claim.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [claims, searchTerm, statusFilter]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'under_review': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const handleViewDetails = (claim: any) => {
+  const handleViewDetails = (claim: Claim) => {
     setSelectedClaim(claim);
     setShowDetails(true);
   };
@@ -694,7 +762,7 @@ const ViewClaims = () => {
 
   const handleCancel = (claimId: string) => {
     if (confirm(`Are you sure you want to cancel claim ${claimId}?`)) {
-      setClaims(prev => prev.filter(claim => claim.id !== claimId));
+      setClaims((prev) => prev.filter((c) => c.id !== claimId));
       alert(`Claim ${claimId} has been cancelled.`);
     }
   };
@@ -719,7 +787,7 @@ const ViewClaims = () => {
             <select
               className="pl-10 pr-8 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | ClaimStatus)}
             >
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
@@ -755,7 +823,7 @@ const ViewClaims = () => {
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-900">{claim.id}</h3>
-                        <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(claim.status)}`}>
+                        <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusPillClass(claim.status)}`}>
                           {claim.status.replace('_', ' ')}
                         </span>
                       </div>
@@ -767,7 +835,7 @@ const ViewClaims = () => {
                       <p className="text-sm text-gray-500">Submitted: {claim.submittedDate}</p>
                     </div>
                   </div>
-                  
+
                   <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-600 mb-4">
                     <div>
                       <p><span className="font-medium">Treatment Date:</span> {claim.date}</p>
@@ -777,16 +845,16 @@ const ViewClaims = () => {
                       <p><span className="font-medium">Hospital:</span> {claim.hospital}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end space-x-3">
-                    <button 
+                    <button
                       onClick={() => handleViewDetails(claim)}
                       className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                     >
                       <Eye className="w-4 h-4" />
                       <span>View Details</span>
                     </button>
-                    <button 
+                    <button
                       onClick={() => handleDownload(claim.id)}
                       className="flex items-center space-x-1 text-green-600 hover:text-green-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
                     >
@@ -795,14 +863,14 @@ const ViewClaims = () => {
                     </button>
                     {claim.status === 'pending' && (
                       <>
-                        <button 
+                        <button
                           onClick={() => handleEdit(claim.id)}
                           className="flex items-center space-x-1 text-orange-600 hover:text-orange-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-orange-50 transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                           <span>Edit</span>
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleCancel(claim.id)}
                           className="flex items-center space-x-1 text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
                         >
@@ -831,7 +899,7 @@ const ViewClaims = () => {
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-900">Claim Details - {selectedClaim.id}</h3>
-                <button 
+                <button
                   onClick={() => setShowDetails(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -849,8 +917,8 @@ const ViewClaims = () => {
                       <p><span className="font-medium">Amount:</span> {selectedClaim.amount}</p>
                       <p><span className="font-medium">Treatment Date:</span> {selectedClaim.date}</p>
                       <p><span className="font-medium">Submitted:</span> {selectedClaim.submittedDate}</p>
-                      <p><span className="font-medium">Status:</span> 
-                        <span className={`ml-2 px-2 py-1 text-xs rounded-full ${getStatusColor(selectedClaim.status)}`}>
+                      <p><span className="font-medium">Status:</span>
+                        <span className={`ml-2 px-2 py-1 text-xs rounded-full ${statusPillClass(selectedClaim.status)}`}>
                           {selectedClaim.status.replace('_', ' ')}
                         </span>
                       </p>
@@ -870,7 +938,7 @@ const ViewClaims = () => {
                 </div>
               </div>
               <div className="flex justify-end space-x-3">
-                <button 
+                <button
                   onClick={() => handleDownload(selectedClaim.id)}
                   className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -878,7 +946,7 @@ const ViewClaims = () => {
                   <span>Download Report</span>
                 </button>
                 {selectedClaim.status === 'pending' && (
-                  <button 
+                  <button
                     onClick={() => {
                       handleEdit(selectedClaim.id);
                       setShowDetails(false);
@@ -898,36 +966,38 @@ const ViewClaims = () => {
   );
 };
 
-const UploadDocuments = () => {
-  const [uploadedFiles, setUploadedFiles] = useState([
+/* -------------------------- Upload Documents -------------------------- */
+const UploadDocuments: React.FC = () => {
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedDoc[]>([
     { id: 1, name: 'medical_report.pdf', size: '2.4 MB', date: '2025-01-15', type: 'Medical Report', claimId: 'CL001' },
     { id: 2, name: 'prescription.jpg', size: '1.1 MB', date: '2025-01-10', type: 'Prescription', claimId: 'CL002' },
     { id: 3, name: 'invoice.pdf', size: '856 KB', date: '2025-01-08', type: 'Invoice', claimId: 'CL003' }
   ]);
 
   const [dragActive, setDragActive] = useState(false);
-  const [selectedClaimId, setSelectedClaimId] = useState('');
+  const [selectedClaimId, setSelectedClaimId] = useState<string>('');
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newFiles = files.map(file => ({
+    const newFiles: UploadedDoc[] = files.map((file) => ({
       id: Date.now() + Math.random(),
       name: file.name,
       size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
       date: new Date().toISOString().split('T')[0],
       type: 'Supporting Document',
-      claimId: selectedClaimId || 'General'
+      claimId: selectedClaimId || 'General',
+      file
     }));
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
     alert(`${files.length} file(s) uploaded successfully!`);
   };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   };
@@ -936,23 +1006,24 @@ const UploadDocuments = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
+
     const files = Array.from(e.dataTransfer.files);
-    const newFiles = files.map(file => ({
+    const newFiles: UploadedDoc[] = files.map((file) => ({
       id: Date.now() + Math.random(),
       name: file.name,
       size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
       date: new Date().toISOString().split('T')[0],
       type: 'Supporting Document',
-      claimId: selectedClaimId || 'General'
+      claimId: selectedClaimId || 'General',
+      file
     }));
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+    setUploadedFiles((prev) => [...prev, ...newFiles]);
     alert(`${files.length} file(s) uploaded successfully!`);
   };
 
   const deleteFile = (fileId: number) => {
     if (confirm('Are you sure you want to delete this file?')) {
-      setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
+      setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId));
       alert('File deleted successfully!');
     }
   };
@@ -970,7 +1041,7 @@ const UploadDocuments = () => {
       {/* Upload Section */}
       <div className="bg-white rounded-xl shadow-sm border p-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">Upload Documents</h2>
-        
+
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Associate with Claim (Optional)
@@ -986,12 +1057,10 @@ const UploadDocuments = () => {
             <option value="CL003">CL003 - Emergency Care</option>
           </select>
         </div>
-        
-        <div 
+
+        <div
           className={`border-2 border-dashed rounded-lg p-12 text-center transition-all duration-300 ${
-            dragActive 
-              ? 'border-blue-400 bg-blue-50' 
-              : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
+            dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'
           }`}
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
@@ -1002,15 +1071,15 @@ const UploadDocuments = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-2">Drop files here</h3>
           <p className="text-gray-600 mb-4">or click to browse from your device</p>
           <p className="text-sm text-gray-500 mb-6">Supported formats: PDF, JPG, PNG (Max 10MB each)</p>
-          <input 
-            type="file" 
-            multiple 
-            className="hidden" 
+          <input
+            type="file"
+            multiple
+            className="hidden"
             accept=".pdf,.jpg,.jpeg,.png"
             onChange={handleFileUpload}
             id="file-upload"
           />
-          <label 
+          <label
             htmlFor="file-upload"
             className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer"
           >
@@ -1027,7 +1096,7 @@ const UploadDocuments = () => {
             <h3 className="text-xl font-semibold text-gray-900">
               Uploaded Documents ({uploadedFiles.length})
             </h3>
-            <button 
+            <button
               onClick={() => {
                 if (confirm('Are you sure you want to delete all files?')) {
                   setUploadedFiles([]);
@@ -1045,7 +1114,10 @@ const UploadDocuments = () => {
           {uploadedFiles.length > 0 ? (
             <div className="space-y-3">
               {uploadedFiles.map((file) => (
-                <div key={file.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                <div
+                  key={file.id}
+                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
                   <div className="flex items-center space-x-3">
                     <FileText className="w-6 h-6 text-blue-600" />
                     <div>
@@ -1056,21 +1128,21 @@ const UploadDocuments = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button 
+                    <button
                       onClick={() => viewFile(file.name)}
                       className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                       title="View file"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => downloadFile(file.name)}
                       className="text-green-600 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition-colors"
                       title="Download file"
                     >
                       <Download className="w-4 h-4" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => deleteFile(file.id)}
                       className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                       title="Delete file"
@@ -1094,9 +1166,10 @@ const UploadDocuments = () => {
   );
 };
 
-const EmployeePortal = () => {
+/* -------------------------- Portal Wrapper -------------------------- */
+const EmployeePortal: React.FC = () => {
   const location = useLocation();
-  
+
   const menuItems = [
     { icon: <Home className="w-5 h-5" />, label: 'Dashboard', path: '/employee' },
     { icon: <Plus className="w-5 h-5" />, label: 'Submit Claim', path: '/employee/submit' },
@@ -1105,8 +1178,8 @@ const EmployeePortal = () => {
   ];
 
   return (
-    <PortalLayout 
-      title="Employee Portal" 
+    <PortalLayout
+      title="Employee Portal"
       menuItems={menuItems}
       currentPath={location.pathname}
       headerColor="bg-blue-600"
