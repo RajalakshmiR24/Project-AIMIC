@@ -1,182 +1,318 @@
-import React, { useState } from 'react';
-import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import {
-  Home,
-  FileText,
-  Users,
-  Upload,
-  Calendar,
-  Activity,
-  UserPlus,
-  Search,
-  Eye,
-  Edit,
-  Download,
-  Plus,
-  X,
-  CheckCircle2,
-  Phone,
-  Mail,
+  Home, FileText, Users, Upload, Activity, UserPlus, Search,
+  Eye, Edit, Download, X, CheckCircle2, Phone, Mail,
 } from 'lucide-react';
 import PortalLayout from '../shared/PortalLayout';
+import { useDoctor } from '../../contexts/DoctorContext';
+import type { MedicalReport } from '../../api/api';
+import Swal from 'sweetalert2';
 
-/* =========================
-   Types
-   ========================= */
+/* ----------------------------------------------------------------
+   API-aligned types & safe helpers
+----------------------------------------------------------------- */
+
 type PatientStatus = 'Active Treatment' | 'Follow-up Required' | 'Completed' | 'New Patient';
 type ReportStatus = 'pending' | 'submitted' | 'approved';
-type AppointmentStatus = 'pending' | 'confirmed' | 'completed';
 
-interface Patient {
-  id: string;
-  name: string;
-  age: number;
-  lastVisit: string;
-  status: PatientStatus;
-  condition: string;
-  nextAppointment: string;
-  phone: string;
-  email: string;
+type BackendPatient = {
+  _id?: string;
+  fullName?: string;
+  age?: number;
+  phone?: string;
+  email?: string;
   insuranceId?: string;
-}
+  primaryCondition?: string;
+  status?: string;
+  lastVisit?: string | null;
+  nextAppointment?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
 
-interface Report {
-  id: string;
-  patient: string;
-  type: string;
-  date: string;
-  status: ReportStatus;
-}
+type NormalizedPatient = {
+  _id?: string;
+  name?: string;
+  age?: number;
+  phone?: string;
+  email?: string;
+  insuranceId?: string;
+  condition?: string;
+  status: PatientStatus;
+  nextAppointment?: string | null;
+  updatedAt?: string;
+};
 
-interface Appointment {
-  id: string;
-  patient: string;
-  time: string;
-  date: string;
-  type: string;
-  status: AppointmentStatus;
-  duration: string;
-}
+const asPatientStatus = (val?: unknown): PatientStatus => {
+  const raw =
+    typeof val === 'string'
+      ? val
+      : (val as any)?.status ?? (val as any)?.condition ?? '';
 
-interface ReportForm {
-  patientId: string;
-  reportType: string;
-  diagnosis: string;
-  treatment: string;
-  recommendations: string;
-  followUpDate: string;
-  medications: string;
-  labResults: string;
-}
+  const txt = String(raw).toLowerCase().trim();
+
+  switch (txt) {
+    case 'active treatment':
+    case 'active':
+    case 'treatment':
+      return 'Active Treatment';
+    case 'follow-up required':
+    case 'follow up':
+    case 'follow-up':
+      return 'Follow-up Required';
+    case 'completed':
+    case 'discharged':
+      return 'Completed';
+    case 'new patient':
+    case 'new':
+    default:
+      return 'New Patient';
+  }
+};
+
+const fmt = (d?: string | Date | null) =>
+  d ? (typeof d === 'string' ? d.slice(0, 10) : new Date(d).toISOString().slice(0, 10)) : '—';
+
+const display = (v: any, fallback = '—'): string => {
+  if (v == null) return fallback;
+  if (typeof v === 'string' || typeof v === 'number') return String(v);
+  if (Array.isArray(v)) return v.map(x => display(x, '')).filter(Boolean).join(', ');
+  if (typeof v === 'object') {
+    if ('_id' in v) return String((v as any)._id);
+    if ('id' in v) return String((v as any).id);
+    if ('name' in v) return String((v as any).name);
+    if ('value' in v) return String((v as any).value);
+    try { return JSON.stringify(v); } catch { return fallback; }
+  }
+  return fallback;
+};
+
+const lower = (v: unknown): string => (v == null ? '' : String(v).toLowerCase());
+const includesI = (hay: unknown, needle: string): boolean => lower(hay).includes(lower(needle));
+
+/** Normalize backend patient into a shape the UI can safely use. */
+const normalizePatient = (p: BackendPatient): NormalizedPatient => ({
+  _id: p._id,
+  name: p.fullName ?? (p as any)?.name,
+  age: p.age,
+  phone: p.phone,
+  email: p.email,
+  insuranceId: p.insuranceId,
+  condition: p.primaryCondition ?? (p as any)?.condition,
+  status: asPatientStatus(p.status ?? (p as any)?.condition),
+  nextAppointment: p.nextAppointment ?? null,
+  updatedAt: p.updatedAt,
+});
 
 /* =========================
-   Doctor Dashboard
-   ========================= */
+   DASHBOARD
+========================= */
 const DoctorDashboard: React.FC = () => {
-  const navigate = useNavigate();
+  const { patients, reports, loading, fetchPatients, fetchReports } = useDoctor();
 
-  const [patients] = useState<Patient[]>([
-    {
-      id: 'P001',
-      name: 'John Doe',
-      age: 35,
-      lastVisit: '2025-01-15',
-      status: 'Active Treatment',
-      condition: 'Hypertension',
-      nextAppointment: '2025-01-22',
-      phone: '+1 (555) 123-4567',
-      email: 'john.doe@email.com',
-    },
-    {
-      id: 'P002',
-      name: 'Jane Smith',
-      age: 28,
-      lastVisit: '2025-01-12',
-      status: 'Follow-up Required',
-      condition: 'Diabetes Type 2',
-      nextAppointment: '2025-01-19',
-      phone: '+1 (555) 234-5678',
-      email: 'jane.smith@email.com',
-    },
-    {
-      id: 'P003',
-      name: 'Mike Johnson',
-      age: 42,
-      lastVisit: '2025-01-10',
-      status: 'Completed',
-      condition: 'Broken Arm',
-      nextAppointment: 'None',
-      phone: '+1 (555) 345-6789',
-      email: 'mike.johnson@email.com',
-    },
-  ]);
+  useEffect(() => {
+    fetchPatients();
+    fetchReports();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const [reports] = useState<Report[]>([
-    { id: 'R001', patient: 'John Doe', type: 'Lab Results', date: '2025-01-15', status: 'pending' },
-    { id: 'R002', patient: 'Jane Smith', type: 'X-Ray Report', date: '2025-01-12', status: 'submitted' },
-    { id: 'R003', patient: 'Mike Johnson', type: 'Treatment Summary', date: '2025-01-10', status: 'approved' },
-  ]);
+  const nPatients = useMemo<NormalizedPatient[]>(
+    () => (patients as BackendPatient[]).map(normalizePatient),
+    [patients]
+  );
 
-  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [showPatientDetails, setShowPatientDetails] = useState(false);
+  const totals = useMemo(
+    () => ({
+      totalPatients: nPatients.length,
+      reportsSubmitted: reports.length,
+      pendingReports: reports.filter((r: any) => r.status === 'pending').length,
+      activeClaims: 0, // wire when claims ready
+    }),
+    [nPatients, reports]
+  );
 
-  const handleViewPatient = (patient: Patient) => {
-    setSelectedPatient(patient);
-    setShowPatientDetails(true);
+  // helper (place near other helpers)
+  const last6Alnum = (v: unknown): string => {
+    if (!v) return '—';
+    let s = '';
+
+    if (typeof v === 'object') {
+      const id = (v as any)?._id || (v as any)?.id || (v as any)?.value || '';
+      s = String(id);
+    } else {
+      s = String(v);
+    }
+
+    const alnum = s.replace(/[^a-zA-Z0-9]/g, '');
+    return alnum ? alnum.slice(-6) : '—';
   };
 
-  const handleScheduleAppointment = (patientId: string) => {
-    window.alert(`Scheduling appointment for patient ${patientId}...`);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const refreshPatients = async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchPatients();
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
-  const handleCallPatient = (phone: string) => {
-    // Prefer native dialer if available
-    window.location.href = `tel:${phone}`;
+  /* =========================
+     NEW: SweetAlert2 helpers
+  ========================== */
+
+  // Build a nice HTML summary for a patient
+  const patientDetailsHTML = (p: NormalizedPatient) => `
+    <div style="text-align:left; line-height:1.5">
+      <div style="font-weight:700; font-size:16px; margin-bottom:8px">${p.name ?? '—'}</div>
+      <div><b>Patient ID:</b> ${display(p._id)}</div>
+      <div><b>Status:</b> ${asPatientStatus(p.status)}</div>
+      <div><b>Age:</b> ${display(p.age)}</div>
+      <div><b>Phone:</b> ${display(p.phone)}</div>
+      <div><b>Email:</b> ${display(p.email)}</div>
+      <div><b>Insurance ID:</b> ${display(p.insuranceId)}</div>
+      <div><b>Primary Condition:</b> ${display(p.condition)}</div>
+      <div><b>Next Appointment:</b> ${fmt(p.nextAppointment)}</div>
+      <div><b>Last Updated:</b> ${fmt(p.updatedAt)}</div>
+    </div>
+  `;
+
+  // Safely extract a string patient id out of report.patientId (can be string or object)
+  const getPatientIdFromReport = (r: any): string | undefined => {
+    if (!r) return undefined;
+    const pid = typeof r.patientId === 'object' && r.patientId !== null
+      ? (r.patientId._id || r.patientId.id || r.patientId.value)
+      : r.patientId;
+    return pid ? String(pid) : undefined;
   };
 
-  const handleEmailPatient = (email: string) => {
-    window.location.href = `mailto:${email}`;
+  // Open SweetAlert with patient details by exact _id
+  const handleViewPatient = (fullId?: string) => {
+    if (!fullId) {
+      Swal.fire('Not found', 'Missing patient ID', 'warning');
+      return;
+    }
+    const match = nPatients.find(px => String(px._id) === String(fullId));
+    if (!match) {
+      Swal.fire('Not found', `No patient found with ID ${fullId}`, 'error');
+      return;
+    }
+    Swal.fire({
+      title: 'Patient Details',
+      html: patientDetailsHTML(match),
+      confirmButtonText: 'Close',
+      width: 560,
+    });
+  };
+
+
+  const reportDetailsHTML = (r: any) => {
+    const pid = getPatientIdFromReport(r);
+    const pidObj = typeof r?.patientId === 'object' && r?.patientId !== null ? r.patientId : undefined;
+    const p = pid ? nPatients.find(px => String(px._id) === String(pid)) : undefined;
+
+    const statusText = r?.status ? String(r.status) : 'submitted';
+    const followUp = r?.followUpDate ? fmt(r.followUpDate) : '—';
+    const createdByName = r?.createdBy?.name || '—';
+    const createdByEmail = r?.createdBy?.email || '—';
+
+    return `
+      <div style="text-align:left; line-height:1.55">
+        <!-- Header -->
+        <div style="font-weight:700; font-size:18px; margin-bottom:2px">${display(r.reportType)}</div>
+        <div style="color:#475569; font-size:13px; margin-bottom:12px">
+          <b>Report ID:</b> ${display(r._id)} &nbsp; • &nbsp;
+          <b>Status:</b> ${display(statusText)} &nbsp; • &nbsp;
+          <b>Created:</b> ${fmt(r.createdAt)} &nbsp; • &nbsp;
+          <b>Updated:</b> ${fmt(r.updatedAt)}
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+          <!-- LEFT COLUMN -->
+          <div>
+            <div style="font-weight:600; margin-bottom:6px">Follow-up</div>
+            <div><b>Follow-up Date:</b> ${followUp}</div>
+            <div><b>Recommendations:</b> ${display(r.recommendations)}</div>
+
+            <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
+
+            <div style="font-weight:600; margin-bottom:6px">Patient</div>
+            <div><b>Patient ID:</b> ${pid ? pid : '—'}</div>
+            ${pidObj ? `
+              <div><b>Phone:</b> ${display(pidObj.phone)}</div>
+              <div><b>Email:</b> ${display(pidObj.email)}</div>
+            ` : ''}
+            ${p ? `
+              <div><b>Name:</b> ${display(p.name)}</div>
+              <div><b>Age:</b> ${display(p.age)}</div>
+              <div><b>Insurance ID:</b> ${display(p.insuranceId)}</div>
+              <div><b>Status:</b> ${asPatientStatus(p.status)}</div>
+            ` : '<div style="color:#888">No enriched patient profile found in current list.</div>'}
+          </div>
+
+          <!-- RIGHT COLUMN -->
+          <div>
+            <div style="font-weight:600; margin-bottom:6px">Clinical Details</div>
+            <div><b>Primary Diagnosis:</b> ${display(r.primaryDiagnosis)}</div>
+            <div><b>Treatment Provided:</b> ${display(r.treatmentProvided)}</div>
+            <div><b>Medications Prescribed:</b> ${display(r.medicationsPrescribed)}</div>
+            <div><b>Lab Results:</b> ${display(r.labResults)}</div>
+
+            <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
+
+            <div style="font-weight:600; margin-bottom:6px">Submitted By</div>
+            <div><b>Name:</b> ${createdByName}</div>
+            <div><b>Email:</b> ${createdByEmail}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  const handleViewReport = (r: any) => {
+    Swal.fire({
+      title: 'Report Details',
+      html: reportDetailsHTML(r),
+      confirmButtonText: 'Close',
+      width: 1200,
+    });
   };
 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <div className="grid md:grid-cols-4 gap-6">
+      <div className="grid md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Patients</p>
-              <p className="text-2xl font-bold text-gray-900">24</p>
-              <p className="text-xs text-green-600 font-medium">+3 this week</p>
+              <p className="text-2xl font-bold text-gray-900">{loading ? '—' : totals.totalPatients}</p>
+              <p className="text-xs text-green-600 font-medium">updated live</p>
             </div>
             <Users className="w-8 h-8 text-teal-600" />
           </div>
         </div>
+
         <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Reports Submitted</p>
-              <p className="text-2xl font-bold text-teal-600">15</p>
-              <p className="text-xs text-teal-600 font-medium">5 pending review</p>
+              <p className="text-2xl font-bold text-teal-600">{loading ? '—' : totals.reportsSubmitted}</p>
+              <p className="text-xs text-teal-600 font-medium">
+                {loading ? '' : `${totals.pendingReports} pending review`}
+              </p>
             </div>
             <FileText className="w-8 h-8 text-teal-600" />
           </div>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Appointments Today</p>
-              <p className="text-2xl font-bold text-blue-600">6</p>
-              <p className="text-xs text-blue-600 font-medium">2 completed</p>
-            </div>
-            <Calendar className="w-8 h-8 text-blue-600" />
-          </div>
-        </div>
+
         <div className="bg-white p-6 rounded-xl shadow-sm border hover:shadow-md transition-shadow cursor-pointer">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Active Claims</p>
-              <p className="text-2xl font-bold text-orange-600">8</p>
+              <p className="text-2xl font-bold text-orange-600">{totals.activeClaims}</p>
               <p className="text-xs text-orange-600 font-medium">Awaiting reports</p>
             </div>
             <Activity className="w-8 h-8 text-orange-600" />
@@ -184,368 +320,232 @@ const DoctorDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
-        </div>
-        <div className="p-6">
-          <div className="grid md:grid-cols-3 gap-4">
-            <button
-              onClick={() => navigate('/doctor/patients')}
-              className="flex items-center space-x-3 p-6 bg-gradient-to-r from-teal-50 to-teal-100 rounded-xl hover:from-teal-100 hover:to-teal-200 transition-all duration-300 group border border-teal-200"
-            >
-              <div className="p-3 bg-teal-600 rounded-lg group-hover:scale-110 transition-transform">
-                <UserPlus className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <span className="font-semibold text-teal-700 block">Add New Patient</span>
-                <span className="text-sm text-teal-600">Register new patient</span>
-              </div>
-            </button>
-            <button
-              onClick={() => window.alert('Opening appointment scheduler...')}
-              className="flex items-center space-x-3 p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl hover:from-blue-100 hover:to-blue-200 transition-all duration-300 group border border-blue-200"
-            >
-              <div className="p-3 bg-blue-600 rounded-lg group-hover:scale-110 transition-transform">
-                <Calendar className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <span className="font-semibold text-blue-700 block">Schedule Appointment</span>
-                <span className="text-sm text-blue-600">Book patient visit</span>
-              </div>
-            </button>
-            <button
-              onClick={() => window.alert('Opening emergency protocols...')}
-              className="flex items-center space-x-3 p-6 bg-gradient-to-r from-red-50 to-red-100 rounded-xl hover:from-red-100 hover:to-red-200 transition-all duration-300 group border border-red-200"
-            >
-              <div className="p-3 bg-red-600 rounded-lg group-hover:scale-110 transition-transform">
-                <Activity className="w-6 h-6 text-white" />
-              </div>
-              <div className="text-left">
-                <span className="font-semibold text-red-700 block">Emergency Protocol</span>
-                <span className="text-sm text-red-600">Quick access tools</span>
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Patients */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Patients</h2>
-            <button
-              onClick={() => window.alert('Opening full patient list...')}
-              className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center space-x-1"
-            >
-              <span>View All</span>
-              <Users className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {patients.map((patient) => (
-              <div
-                key={patient.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+      {/* Dashboard Lists Side by Side */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* Recent Patients */}
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Recent Patients</h2>
+              <button
+                onClick={refreshPatients}
+                className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center space-x-1"
+                title="Refresh patients"
               >
-                <div className="flex items-center space-x-4">
-                  <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
-                    <Users className="w-6 h-6 text-teal-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{patient.name}</p>
-                    <p className="text-sm text-gray-600">
-                      ID: {patient.id} • Age: {patient.age} • {patient.condition}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Last Visit: {patient.lastVisit}</p>
-                    <p className="text-sm font-medium text-teal-600">{patient.status}</p>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleCallPatient(patient.phone)}
-                      className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Call patient"
-                    >
-                      <Phone className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleEmailPatient(patient.email)}
-                      className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Email patient"
-                    >
-                      <Mail className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleViewPatient(patient)}
-                      className="p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
-                      title="View details"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Reports */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Reports</h2>
-            <button
-              onClick={() => window.alert('Opening reports management...')}
-              className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center space-x-1"
-            >
-              <span>Manage All</span>
-              <FileText className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {reports.map((report) => (
-              <div
-                key={report.id}
-                className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-              >
-                <div>
-                  <p className="font-semibold text-gray-900">{report.type}</p>
-                  <p className="text-sm text-gray-600">
-                    Patient: {report.patient} • {report.date}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span
-                    className={`px-3 py-1 text-xs font-medium rounded-full ${
-                      report.status === 'approved'
-                        ? 'bg-green-100 text-green-800'
-                        : report.status === 'submitted'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {report.status}
+                {isRefreshing ? (
+                  <span className="inline-flex items-center">
+                    <span className="w-3.5 h-3.5 mr-2 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                    Refreshing…
                   </span>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => window.alert(`Viewing report ${report.id}...`)}
-                      className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="View report"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => window.alert(`Downloading report ${report.id}...`)}
-                      className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Download report"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
-                    {report.status === 'pending' && (
+                ) : (
+                  <>
+                    <span>Refresh</span>
+                    <Users className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+
+            </div>
+          </div>
+          <div className="p-6">
+            {loading ? (
+              <div className="text-gray-600">Loading patients…</div>
+            ) : (
+              <div className="space-y-4">
+                {nPatients.slice(0, 5).map((p) => (
+                  <div
+                    key={p._id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-teal-600" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900">{display(p.name)}</p>
+                        <p className="text-sm text-gray-600">
+                          ID: {last6Alnum(p._id)} • Age: {display(p.age)} • {display(p.insuranceId)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600">Next: {fmt(p.nextAppointment)}</p>
+                      <p className="text-sm font-medium text-teal-600">{asPatientStatus(p.status)}</p>
                       <button
-                        onClick={() => window.alert(`Editing report ${report.id}...`)}
-                        className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
-                        title="Edit report"
+                        onClick={() => handleViewPatient(p._id)}
+                        className="inline-block mt-2 p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                        title="View details"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Eye className="w-4 h-4" />
                       </button>
-                    )}
+                    </div>
                   </div>
-                </div>
+                ))}
+                {nPatients.length === 0 && <div className="text-gray-600">No patients yet.</div>}
               </div>
-            ))}
+            )}
+          </div>
+        </div>
+
+        {/* Recent Reports */}
+        <div className="bg-white rounded-xl shadow-sm border">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Recent Reports</h2>
+              <a
+                href="/doctor/submit"
+                className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center space-x-1"
+              >
+                <span>Submit New</span>
+                <FileText className="w-4 h-4" />
+              </a>
+            </div>
+          </div>
+          <div className="p-6">
+            {loading ? (
+              <div className="text-gray-600">Loading reports…</div>
+            ) : (
+              <div className="space-y-4">
+                {reports.slice(0, 5).map((r: any) => {
+                  const status: ReportStatus = (String(r.status || 'submitted').toLowerCase() as ReportStatus);
+                  return (
+                    <div
+                      key={r._id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                    >
+                      <div>
+                        <p className="font-semibold text-gray-900">{display(r.reportType)}</p>
+                        <p className="text-sm text-gray-600">
+                          Patient ID: {last6Alnum(r.patientId)} • {fmt(r.createdAt)}
+                        </p>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span
+                          className={`px-3 py-1 text-xs font-medium rounded-full ${status === 'approved'
+                            ? 'bg-green-100 text-green-800'
+                            : status === 'submitted'
+                              ? 'bg-blue-100 text-blue-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                        >
+                          {String(r.status || 'submitted')}
+                        </span>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleViewReport(r)}
+                            className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="View report"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => window.alert(`Downloading report ${display(r._id)}...`)}
+                            className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Download report"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          {status === 'pending' && (
+                            <button
+                              onClick={() => window.alert(`Editing report ${display(r._id)}...`)}
+                              className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                              title="Edit report"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {reports.length === 0 && <div className="text-gray-600">No reports yet.</div>}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Patient Details Modal */}
-      {showPatientDetails && selectedPatient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Patient Details - {selectedPatient.name}
-                </h3>
-                <button
-                  onClick={() => setShowPatientDetails(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-            <div className="p-6 space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Patient Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <p>
-                      <span className="font-medium">ID:</span> {selectedPatient.id}
-                    </p>
-                    <p>
-                      <span className="font-medium">Age:</span> {selectedPatient.age}
-                    </p>
-                    <p>
-                      <span className="font-medium">Phone:</span> {selectedPatient.phone}
-                    </p>
-                    <p>
-                      <span className="font-medium">Email:</span> {selectedPatient.email}
-                    </p>
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Medical Information</h4>
-                  <div className="space-y-2 text-sm">
-                    <p>
-                      <span className="font-medium">Condition:</span> {selectedPatient.condition}
-                    </p>
-                    <p>
-                      <span className="font-medium">Last Visit:</span> {selectedPatient.lastVisit}
-                    </p>
-                    <p>
-                      <span className="font-medium">Next Appointment:</span> {selectedPatient.nextAppointment}
-                    </p>
-                    <p>
-                      <span className="font-medium">Status:</span> {selectedPatient.status}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => handleCallPatient(selectedPatient.phone)}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Phone className="w-4 h-4" />
-                  <span>Call</span>
-                </button>
-                <button
-                  onClick={() => handleEmailPatient(selectedPatient.email)}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>Email</span>
-                </button>
-                <button
-                  onClick={() => handleScheduleAppointment(selectedPatient.id)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
-                >
-                  <Calendar className="w-4 h-4" />
-                  <span>Schedule</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
 /* =========================
-   Patient Management
-   ========================= */
+   PATIENT MANAGEMENT
+========================= */
 const PatientManagement: React.FC = () => {
-  const [patients, setPatients] = useState<Patient[]>([
-    {
-      id: 'P001',
-      name: 'John Doe',
-      age: 35,
-      lastVisit: '2025-01-15',
-      status: 'Active Treatment',
-      condition: 'Hypertension',
-      nextAppointment: '2025-01-22',
-      phone: '+1 (555) 123-4567',
-      email: 'john.doe@email.com',
-      insuranceId: 'INS123456',
-    },
-    {
-      id: 'P002',
-      name: 'Jane Smith',
-      age: 28,
-      lastVisit: '2025-01-12',
-      status: 'Follow-up Required',
-      condition: 'Diabetes Type 2',
-      nextAppointment: '2025-01-19',
-      phone: '+1 (555) 234-5678',
-      email: 'jane.smith@email.com',
-      insuranceId: 'INS234567',
-    },
-  ]);
+  const { patients, loading, addPatient, deletePatient, fetchPatients } = useDoctor();
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showAddPatient, setShowAddPatient] = useState<boolean>(false);
   const [newPatient, setNewPatient] = useState<{
-    name: string;
-    age: string;
-    phone: string;
-    email: string;
-    condition: string;
-    insuranceId: string;
+    fullName: string; age: string; phone: string; email: string;
+    primaryCondition: string; insuranceId: string;
   }>({
-    name: '',
-    age: '',
-    phone: '',
-    email: '',
-    condition: '',
-    insuranceId: '',
+    fullName: '', age: '', phone: '', email: '',
+    primaryCondition: '', insuranceId: '',
   });
 
-  const filteredPatients = patients.filter(
-    (patient) =>
-      patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      patient.condition.toLowerCase().includes(searchTerm.toLowerCase()),
+  useEffect(() => {
+    fetchPatients();
+  }, []); // eslint-disable-line
+
+
+
+  const nPatients = useMemo<NormalizedPatient[]>(
+    () => (patients as BackendPatient[]).map(normalizePatient),
+    [patients]
   );
 
-  const handleAddPatient = (e: React.FormEvent) => {
+  const filteredPatients = useMemo(() => {
+    const q = lower(searchTerm);
+    return nPatients.filter((p) =>
+      includesI(p.name, q) ||
+      includesI(p._id, q) ||
+      includesI(p.email, q) ||
+      includesI(p.phone, q) ||
+      includesI(p.condition, q) ||
+      includesI(p.insuranceId, q)
+    );
+  }, [nPatients, searchTerm]);
+
+  const handleAddPatient = async (e: React.FormEvent) => {
     e.preventDefault();
     const ageNum = parseInt(newPatient.age, 10);
-    const nextIdNum = patients.reduce((max, p) => {
-      const n = parseInt(p.id.replace(/\D/g, ''), 10);
-      return Number.isNaN(n) ? max : Math.max(max, n);
-    }, 0);
 
-    const patient: Patient = {
-      id: `P${String(nextIdNum + 1).padStart(3, '0')}`,
-      name: newPatient.name.trim(),
-      age: Number.isNaN(ageNum) ? 0 : ageNum,
-      phone: newPatient.phone.trim(),
+    // Send payload in backend’s shape
+    const payload: Partial<BackendPatient> = {
+      fullName: newPatient.fullName.trim(),
       email: newPatient.email.trim(),
+      phone: newPatient.phone.trim(),
+      age: Number.isNaN(ageNum) ? undefined : ageNum,
       insuranceId: newPatient.insuranceId.trim() || undefined,
-      condition: newPatient.condition.trim() || 'Not specified',
-      lastVisit: new Date().toISOString().split('T')[0],
+      primaryCondition: newPatient.primaryCondition.trim() || undefined,
       status: 'New Patient',
-      nextAppointment: 'To be scheduled',
     };
 
-    setPatients((prev) => [...prev, patient]);
-    setNewPatient({ name: '', age: '', phone: '', email: '', condition: '', insuranceId: '' });
-    setShowAddPatient(false);
-    window.alert('Patient added successfully!');
-  };
-
-  const handleDeletePatient = (patientId: string) => {
-    if (window.confirm('Are you sure you want to remove this patient?')) {
-      setPatients((prev) => prev.filter((p) => p.id !== patientId));
-      window.alert('Patient removed successfully!');
+    try {
+      await addPatient(payload as any);
+      setNewPatient({
+        fullName: '', age: '', phone: '', email: '',
+        primaryCondition: '', insuranceId: '',
+      });
+      setShowAddPatient(false);
+      window.alert('Patient added successfully!');
+    } catch (err: any) {
+      window.alert(`Failed to add patient: ${err?.message ?? 'unknown error'}`);
     }
   };
 
-  const handleScheduleAppointment = (patientId: string) => {
-    window.alert(`Scheduling appointment for patient ${patientId}...`);
+  const handleDeletePatient = async (id?: string) => {
+    if (!id) return;
+    if (!window.confirm('Are you sure you want to remove this patient?')) return;
+    try {
+      await deletePatient(id);
+      window.alert('Patient removed successfully!');
+    } catch (err: any) {
+      window.alert(`Failed to delete: ${err?.message ?? 'unknown error'}`);
+    }
   };
 
   return (
@@ -557,7 +557,7 @@ const PatientManagement: React.FC = () => {
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search patients by name, ID, or condition..."
+              placeholder="Search patients by name, ID, phone, email, condition, or insurance..."
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -576,95 +576,69 @@ const PatientManagement: React.FC = () => {
       {/* Patients List */}
       <div className="bg-white rounded-xl shadow-sm border">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Patient Management ({filteredPatients.length})</h2>
+          <h2 className="text-xl font-semibold text-gray-900">
+            Patient Management {loading ? '' : `(${filteredPatients.length})`}
+          </h2>
         </div>
         <div className="p-6">
-          <div className="grid gap-6">
-            {filteredPatients.map((patient) => (
-              <div key={patient.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{patient.name}</h3>
-                      <span
-                        className={`px-3 py-1 text-xs font-medium rounded-full ${
-                          patient.status === 'Active Treatment'
-                            ? 'bg-green-100 text-green-800'
-                            : patient.status === 'Follow-up Required'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : patient.status === 'Completed'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
-                        }`}
-                      >
-                        {patient.status}
-                      </span>
+          {loading ? (
+            <div className="text-gray-600">Loading patients…</div>
+          ) : (
+            <div className="grid gap-6">
+              {filteredPatients.map((p) => (
+                <div key={p._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h3 className="text-lg font-semibold text-gray-900">{display(p.name)}</h3>
+                        <span className="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                          {asPatientStatus(p.status)}
+                        </span>
+                      </div>
+                      <p className="text-gray-600">
+                        Patient ID: {display(p._id)} • Age: {display(p.age)}
+                      </p>
                     </div>
-                    <p className="text-gray-600">
-                      Patient ID: {patient.id} • Age: {patient.age}
-                    </p>
                   </div>
-                </div>
 
-                <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
-                  <div className="space-y-1">
-                    <p>
-                      <span className="font-medium text-gray-700">Insurance ID:</span>{' '}
-                      {patient.insuranceId || '—'}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-700">Last Visit:</span> {patient.lastVisit}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-700">Phone:</span> {patient.phone}
-                    </p>
+                  <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
+                    <div className="space-y-1">
+                      <p><span className="font-medium text-gray-700">Primary Condition:</span> {display(p.condition)}</p>
+                      <p><span className="font-medium text-gray-700">Phone:</span> {display(p.phone)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p><span className="font-medium text-gray-700">Insurance ID:</span> {display(p.insuranceId)}</p>
+                      <p><span className="font-medium text-gray-700">Email:</span> {display(p.email)}</p>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <p>
-                      <span className="font-medium text-gray-700">Condition:</span> {patient.condition}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-700">Next Appointment:</span>{' '}
-                      {patient.nextAppointment}
-                    </p>
-                    <p>
-                      <span className="font-medium text-gray-700">Email:</span> {patient.email}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => window.alert(`Viewing medical history for ${patient.name}...`)}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    View History
-                  </button>
-                  <button
-                    onClick={() => window.alert(`Creating report for ${patient.name}...`)}
-                    className="text-teal-600 hover:text-teal-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-teal-50 transition-colors"
-                  >
-                    Submit Report
-                  </button>
-                  <button
-                    onClick={() => handleScheduleAppointment(patient.id)}
-                    className="text-green-600 hover:text-green-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
-                  >
-                    Schedule
-                  </button>
-                  <button
-                    onClick={() => handleDeletePatient(patient.id)}
-                    className="text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => window.alert(`Viewing medical history for ${display(p.name)}…`)}
+                      className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      View History
+                    </button>
+                    <a
+                      href="/doctor/submit"
+                      className="text-teal-600 hover:text-teal-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-teal-50 transition-colors"
+                    >
+                      Submit Report
+                    </a>
+                    <button
+                      onClick={() => handleDeletePatient(p._id)}
+                      className="text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {filteredPatients.length === 0 && (
-              <div className="text-center text-gray-600 py-12">No patients match your search.</div>
-            )}
-          </div>
+              ))}
+              {filteredPatients.length === 0 && (
+                <div className="text-center text-gray-600 py-12">No patients match your search.</div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -691,44 +665,43 @@ const PatientManagement: React.FC = () => {
                     type="text"
                     required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    value={newPatient.name}
-                    onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                    value={newPatient.fullName}
+                    onChange={(e) => setNewPatient({ ...newPatient, fullName: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
                   <input
                     type="number"
                     min={0}
-                    required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     value={newPatient.age}
                     onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
                   />
                 </div>
               </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                   <input
                     type="tel"
-                    required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     value={newPatient.phone}
                     onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                   <input
                     type="email"
-                    required
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     value={newPatient.email}
                     onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
                   />
                 </div>
               </div>
+
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Insurance ID</label>
@@ -744,11 +717,12 @@ const PatientManagement: React.FC = () => {
                   <input
                     type="text"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
-                    value={newPatient.condition}
-                    onChange={(e) => setNewPatient({ ...newPatient, condition: e.target.value })}
+                    value={newPatient.primaryCondition}
+                    onChange={(e) => setNewPatient({ ...newPatient, primaryCondition: e.target.value })}
                   />
                 </div>
               </div>
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   type="button"
@@ -773,9 +747,22 @@ const PatientManagement: React.FC = () => {
 };
 
 /* =========================
-   Submit Report
-   ========================= */
+   SUBMIT REPORT
+========================= */
+type ReportForm = {
+  patientId: string;
+  reportType: string;
+  diagnosis: string;
+  treatment: string;
+  recommendations: string;
+  followUpDate: string;
+  medications: string;
+  labResults: string;
+};
+
 const SubmitReport: React.FC = () => {
+  const { createReport } = useDoctor();
+
   const [formData, setFormData] = useState<ReportForm>({
     patientId: '',
     reportType: '',
@@ -794,25 +781,40 @@ const SubmitReport: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulated API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    const payload: MedicalReport = {
+      patientId: formData.patientId.trim(),
+      reportType: formData.reportType,
+      primaryDiagnosis: formData.diagnosis,
+      treatmentProvided: [
+        `Treatment: ${formData.treatment}`,
+        formData.medications ? `Medications: ${formData.medications}` : '',
+        formData.labResults ? `Lab Results: ${formData.labResults}` : '',
+        formData.recommendations ? `Recommendations: ${formData.recommendations}` : '',
+        formData.followUpDate ? `Follow-up Date: ${formData.followUpDate}` : '',
+      ].filter(Boolean).join('\n'),
+    };
 
-    setIsSubmitting(false);
-    setShowSuccess(true);
-
-    setTimeout(() => {
-      setShowSuccess(false);
-      setFormData({
-        patientId: '',
-        reportType: '',
-        diagnosis: '',
-        treatment: '',
-        recommendations: '',
-        followUpDate: '',
-        medications: '',
-        labResults: '',
-      });
-    }, 3000);
+    try {
+      await createReport(payload);
+      setIsSubmitting(false);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        setFormData({
+          patientId: '',
+          reportType: '',
+          diagnosis: '',
+          treatment: '',
+          recommendations: '',
+          followUpDate: '',
+          medications: '',
+          labResults: '',
+        });
+      }, 2000);
+    } catch (err: any) {
+      setIsSubmitting(false);
+      window.alert(`Failed to submit report: ${err?.message ?? 'unknown error'}`);
+    }
   };
 
   const saveDraft = () => {
@@ -843,8 +845,7 @@ const SubmitReport: React.FC = () => {
           </p>
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
             <p className="text-sm text-gray-600">
-              Report ID:{' '}
-              <span className="font-mono font-bold text-teal-600">R{Date.now().toString().slice(-6)}</span>
+              Timestamp: <span className="font-mono font-bold text-teal-600">{new Date().toISOString()}</span>
             </p>
           </div>
           <button
@@ -871,6 +872,13 @@ const SubmitReport: React.FC = () => {
               >
                 <Upload className="w-4 h-4" />
                 <span>Load Draft</span>
+              </button>
+              <button
+                onClick={saveDraft}
+                className="text-gray-700 hover:text-gray-900 font-medium text-sm flex items-center space-x-1"
+              >
+                <FileText className="w-4 h-4" />
+                <span>Save Draft</span>
               </button>
             </div>
           </div>
@@ -899,12 +907,12 @@ const SubmitReport: React.FC = () => {
                 required
               >
                 <option value="">Select report type</option>
-                <option value="consultation">Consultation Report</option>
-                <option value="lab">Laboratory Results</option>
-                <option value="xray">X-Ray Report</option>
-                <option value="surgery">Surgery Report</option>
-                <option value="discharge">Discharge Summary</option>
-                <option value="emergency">Emergency Report</option>
+                <option value="Consultation Report">Consultation Report</option>
+                <option value="Laboratory Results">Laboratory Results</option>
+                <option value="X-Ray Report">X-Ray Report</option>
+                <option value="Surgery Report">Surgery Report</option>
+                <option value="Discharge Summary">Discharge Summary</option>
+                <option value="Emergency Report">Emergency Report</option>
               </select>
             </div>
           </div>
@@ -981,7 +989,10 @@ const SubmitReport: React.FC = () => {
           <div className="flex justify-between pt-4">
             <button
               type="button"
-              onClick={saveDraft}
+              onClick={() => {
+                localStorage.setItem('reportDraft', JSON.stringify(formData));
+                window.alert('Report draft saved successfully!');
+              }}
               className="flex items-center space-x-2 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
               <FileText className="w-4 h-4" />
@@ -1012,136 +1023,8 @@ const SubmitReport: React.FC = () => {
 };
 
 /* =========================
-   Appointments
-   ========================= */
-const Appointments: React.FC = () => {
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: 'A001',
-      patient: 'John Doe',
-      time: '09:00 AM',
-      date: '2025-01-20',
-      type: 'Follow-up',
-      status: 'confirmed',
-      duration: '30 min',
-    },
-    {
-      id: 'A002',
-      patient: 'Jane Smith',
-      time: '10:30 AM',
-      date: '2025-01-20',
-      type: 'Consultation',
-      status: 'pending',
-      duration: '45 min',
-    },
-    {
-      id: 'A003',
-      patient: 'Mike Johnson',
-      time: '02:00 PM',
-      date: '2025-01-20',
-      type: 'Check-up',
-      status: 'completed',
-      duration: '30 min',
-    },
-  ]);
-
-  const handleConfirmAppointment = (appointmentId: string) => {
-    setAppointments((prev) =>
-      prev.map((apt) => (apt.id === appointmentId ? { ...apt, status: 'confirmed' } : apt)),
-    );
-    window.alert(`Appointment ${appointmentId} confirmed!`);
-  };
-
-  const handleCancelAppointment = (appointmentId: string) => {
-    if (window.confirm('Are you sure you want to cancel this appointment?')) {
-      setAppointments((prev) => prev.filter((apt) => apt.id !== appointmentId));
-      window.alert(`Appointment ${appointmentId} cancelled!`);
-    }
-  };
-
-  const handleReschedule = (appointmentId: string) => {
-    window.alert(`Opening reschedule dialog for appointment ${appointmentId}...`);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900">Today's Appointments</h2>
-            <button
-              onClick={() => window.alert('Opening appointment scheduler...')}
-              className="bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Appointment</span>
-            </button>
-          </div>
-        </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {appointments.map((appointment) => (
-              <div key={appointment.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{appointment.patient}</h3>
-                    <p className="text-gray-600">
-                      {appointment.type} • {appointment.duration}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900">{appointment.time}</p>
-                    <span
-                      className={`inline-block px-3 py-1 text-xs font-medium rounded-full ${
-                        appointment.status === 'confirmed'
-                          ? 'bg-green-100 text-green-800'
-                          : appointment.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-blue-100 text-blue-800'
-                      }`}
-                    >
-                      {appointment.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  {appointment.status === 'pending' && (
-                    <button
-                      onClick={() => handleConfirmAppointment(appointment.id)}
-                      className="text-green-600 hover:text-green-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-green-50 transition-colors"
-                    >
-                      Confirm
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleReschedule(appointment.id)}
-                    className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
-                  >
-                    Reschedule
-                  </button>
-                  <button
-                    onClick={() => handleCancelAppointment(appointment.id)}
-                    className="text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ))}
-            {appointments.length === 0 && (
-              <div className="text-center text-gray-600 py-12">No appointments scheduled.</div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* =========================
-   Portal Shell
-   ========================= */
+   PORTAL SHELL + ROUTES
+========================= */
 const DoctorPortal: React.FC = () => {
   const location = useLocation();
 
@@ -1149,18 +1032,28 @@ const DoctorPortal: React.FC = () => {
     { icon: <Home className="w-5 h-5" />, label: 'Dashboard', path: '/doctor' },
     { icon: <Users className="w-5 h-5" />, label: 'Patients', path: '/doctor/patients' },
     { icon: <FileText className="w-5 h-5" />, label: 'Submit Report', path: '/doctor/submit' },
-    { icon: <Calendar className="w-5 h-5" />, label: 'Appointments', path: '/doctor/appointments' },
   ];
 
   return (
-    <PortalLayout title="Doctor Portal" menuItems={menuItems} currentPath={location.pathname} headerColor="bg-teal-600">
-      <Routes>
-        <Route path="/" element={<DoctorDashboard />} />
-        <Route path="/patients" element={<PatientManagement />} />
-        <Route path="/submit" element={<SubmitReport />} />
-        <Route path="/appointments" element={<Appointments />} />
-      </Routes>
-    </PortalLayout>
+    <div className="doctor-portal-shell">
+      <style>{`
+        .doctor-portal-shell nav { overflow-y: hidden !important; }
+        .doctor-portal-shell nav::-webkit-scrollbar { display: none; }
+      `}</style>
+
+      <PortalLayout
+        title="Doctor Portal"
+        menuItems={menuItems}
+        currentPath={location.pathname}
+        headerColor="bg-teal-600"
+      >
+        <Routes>
+          <Route path="/" element={<DoctorDashboard />} />
+          <Route path="/patients" element={<PatientManagement />} />
+          <Route path="/submit" element={<SubmitReport />} />
+        </Routes>
+      </PortalLayout>
+    </div>
   );
 };
 
