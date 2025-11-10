@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation, Link, useSearchParams } from 'react-router-dom';
 import {
   Home, FileText, Users, Upload, Activity, UserPlus, Search,
-  Eye, Edit, Download, X, CheckCircle2, Phone, Mail,
+  Eye, Edit, Download, X, CheckCircle2,
 } from 'lucide-react';
 import PortalLayout from '../shared/PortalLayout';
 import { useDoctor } from '../../contexts/DoctorContext';
@@ -126,27 +126,11 @@ const DoctorDashboard: React.FC = () => {
     () => ({
       totalPatients: nPatients.length,
       reportsSubmitted: reports.length,
-      pendingReports: reports.filter((r: any) => r.status === 'pending').length,
+      pendingReports: reports.filter((r: any) => String(r.status || '').toLowerCase() === 'pending').length,
       activeClaims: 0, // wire when claims ready
     }),
     [nPatients, reports]
   );
-
-  // helper (place near other helpers)
-  const last6Alnum = (v: unknown): string => {
-    if (!v) return '—';
-    let s = '';
-
-    if (typeof v === 'object') {
-      const id = (v as any)?._id || (v as any)?.id || (v as any)?.value || '';
-      s = String(id);
-    } else {
-      s = String(v);
-    }
-
-    const alnum = s.replace(/[^a-zA-Z0-9]/g, '');
-    return alnum ? alnum.slice(-6) : '—';
-  };
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -159,11 +143,7 @@ const DoctorDashboard: React.FC = () => {
     }
   };
 
-  /* =========================
-     NEW: SweetAlert2 helpers
-  ========================== */
-
-  // Build a nice HTML summary for a patient
+  // Patient quick view
   const patientDetailsHTML = (p: NormalizedPatient) => `
     <div style="text-align:left; line-height:1.5">
       <div style="font-weight:700; font-size:16px; margin-bottom:8px">${p.name ?? '—'}</div>
@@ -179,16 +159,6 @@ const DoctorDashboard: React.FC = () => {
     </div>
   `;
 
-  // Safely extract a string patient id out of report.patientId (can be string or object)
-  const getPatientIdFromReport = (r: any): string | undefined => {
-    if (!r) return undefined;
-    const pid = typeof r.patientId === 'object' && r.patientId !== null
-      ? (r.patientId._id || r.patientId.id || r.patientId.value)
-      : r.patientId;
-    return pid ? String(pid) : undefined;
-  };
-
-  // Open SweetAlert with patient details by exact _id
   const handleViewPatient = (fullId?: string) => {
     if (!fullId) {
       Swal.fire('Not found', 'Missing patient ID', 'warning');
@@ -207,78 +177,75 @@ const DoctorDashboard: React.FC = () => {
     });
   };
 
+// Full report viewer for Dashboard "Recent Reports"
+const handleViewReport = (r: any) => {
+  // patientId may be a string or an object with _id/phone/email
+  const pidObj =
+    typeof r?.patientId === 'object' && r?.patientId !== null ? r.patientId : undefined;
 
-  const reportDetailsHTML = (r: any) => {
-    const pid = getPatientIdFromReport(r);
-    const pidObj = typeof r?.patientId === 'object' && r?.patientId !== null ? r.patientId : undefined;
-    const p = pid ? nPatients.find(px => String(px._id) === String(pid)) : undefined;
+  const pid = pidObj
+    ? (pidObj._id || pidObj.id || pidObj.value)
+    : (r?.patientId ?? '—');
 
-    const statusText = r?.status ? String(r.status) : 'submitted';
-    const followUp = r?.followUpDate ? fmt(r.followUpDate) : '—';
-    const createdByName = r?.createdBy?.name || '—';
-    const createdByEmail = r?.createdBy?.email || '—';
+  const statusText = String(r?.status ?? 'submitted'); // preserve original casing like "Submitted"
+  const followUp = r?.followUpDate ? fmt(r.followUpDate) : '—';
+  const createdByName = r?.createdBy?.name || '—';
+  const createdByEmail = r?.createdBy?.email || '—';
 
-    return `
-      <div style="text-align:left; line-height:1.55">
-        <!-- Header -->
-        <div style="font-weight:700; font-size:18px; margin-bottom:2px">${display(r.reportType)}</div>
-        <div style="color:#475569; font-size:13px; margin-bottom:12px">
-          <b>Report ID:</b> ${display(r._id)} &nbsp; • &nbsp;
-          <b>Status:</b> ${display(statusText)} &nbsp; • &nbsp;
-          <b>Created:</b> ${fmt(r.createdAt)} &nbsp; • &nbsp;
-          <b>Updated:</b> ${fmt(r.updatedAt)}
+  const html = `
+    <div style="text-align:left; line-height:1.6">
+      <!-- Header -->
+      <div style="font-weight:800; font-size:18px; margin-bottom:2px">${display(r.reportType)}</div>
+      <div style="color:#475569; font-size:13px; margin-bottom:12px">
+        <b>Report ID:</b> ${display(r._id)} &nbsp; • &nbsp;
+        <b>Status:</b> ${display(statusText)} &nbsp; • &nbsp;
+        <b>Created:</b> ${fmt(r.createdAt)} &nbsp; • &nbsp;
+        <b>Updated:</b> ${fmt(r.updatedAt)}
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+        <!-- LEFT -->
+        <div>
+          <div style="font-weight:700; margin-bottom:6px">Patient</div>
+          <div><b>Patient ID:</b> ${display(pid)}</div>
+          ${
+            pidObj
+              ? `
+                <div><b>Phone:</b> ${display(pidObj.phone)}</div>
+                <div><b>Email:</b> ${display(pidObj.email)}</div>
+              `
+              : `<div style="color:#888">No enriched patient contact on this payload.</div>`
+          }
+
+          <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
+
+          <div style="font-weight:700; margin-bottom:6px">Follow-up</div>
+          <div><b>Follow-up Date:</b> ${followUp}</div>
+          <div><b>Recommendations:</b> ${display(r.recommendations)}</div>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
-          <!-- LEFT COLUMN -->
-          <div>
-            <div style="font-weight:600; margin-bottom:6px">Follow-up</div>
-            <div><b>Follow-up Date:</b> ${followUp}</div>
-            <div><b>Recommendations:</b> ${display(r.recommendations)}</div>
-
-            <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
-
-            <div style="font-weight:600; margin-bottom:6px">Patient</div>
-            <div><b>Patient ID:</b> ${pid ? pid : '—'}</div>
-            ${pidObj ? `
-              <div><b>Phone:</b> ${display(pidObj.phone)}</div>
-              <div><b>Email:</b> ${display(pidObj.email)}</div>
-            ` : ''}
-            ${p ? `
-              <div><b>Name:</b> ${display(p.name)}</div>
-              <div><b>Age:</b> ${display(p.age)}</div>
-              <div><b>Insurance ID:</b> ${display(p.insuranceId)}</div>
-              <div><b>Status:</b> ${asPatientStatus(p.status)}</div>
-            ` : '<div style="color:#888">No enriched patient profile found in current list.</div>'}
+        <!-- RIGHT -->
+        <div>
+          <div style="font-weight:700; margin-bottom:6px">Clinical Details</div>
+          <div><b>Primary Diagnosis:</b> ${display(r.primaryDiagnosis)}</div>
+          <div><b>Treatment Provided:</b>
+            <pre style="white-space:pre-wrap;margin:6px 0 0">${display(r.treatmentProvided)}</pre>
           </div>
+          <div><b>Medications Prescribed:</b> ${display(r.medicationsPrescribed)}</div>
+          <div><b>Lab Results:</b> ${display(r.labResults)}</div>
 
-          <!-- RIGHT COLUMN -->
-          <div>
-            <div style="font-weight:600; margin-bottom:6px">Clinical Details</div>
-            <div><b>Primary Diagnosis:</b> ${display(r.primaryDiagnosis)}</div>
-            <div><b>Treatment Provided:</b> ${display(r.treatmentProvided)}</div>
-            <div><b>Medications Prescribed:</b> ${display(r.medicationsPrescribed)}</div>
-            <div><b>Lab Results:</b> ${display(r.labResults)}</div>
+          <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
 
-            <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
-
-            <div style="font-weight:600; margin-bottom:6px">Submitted By</div>
-            <div><b>Name:</b> ${createdByName}</div>
-            <div><b>Email:</b> ${createdByEmail}</div>
-          </div>
+          <div style="font-weight:700; margin-bottom:6px">Submitted By</div>
+          <div><b>Name:</b> ${display(createdByName)}</div>
+          <div><b>Email:</b> ${display(createdByEmail)}</div>
         </div>
       </div>
-    `;
-  };
+    </div>
+  `;
 
-  const handleViewReport = (r: any) => {
-    Swal.fire({
-      title: 'Report Details',
-      html: reportDetailsHTML(r),
-      confirmButtonText: 'Close',
-      width: 1200,
-    });
-  };
+  Swal.fire({ title: 'Report Details', html, width: 1000, confirmButtonText: 'Close' });
+};
 
   return (
     <div className="space-y-6">
@@ -364,20 +331,29 @@ const DoctorDashboard: React.FC = () => {
                       <div>
                         <p className="font-semibold text-gray-900">{display(p.name)}</p>
                         <p className="text-sm text-gray-600">
-                          ID: {last6Alnum(p._id)} • Age: {display(p.age)} • {display(p.insuranceId)}
+                          ID: {String(p._id || '').toString().slice(-6) || '—'} • Age: {display(p.age)} • {display(p.insuranceId)}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">Next: {fmt(p.nextAppointment)}</p>
                       <p className="text-sm font-medium text-teal-600">{asPatientStatus(p.status)}</p>
-                      <button
-                        onClick={() => handleViewPatient(p._id)}
-                        className="inline-block mt-2 p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
-                        title="View details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-2 mt-2">
+                        <button
+                          onClick={() => handleViewPatient(p._id)}
+                          className="p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                          title="View details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <Link
+                          to={`/doctor/submit?patientId=${encodeURIComponent(String(p._id ?? ''))}`}
+                          className="p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+                          title="Submit report for this patient"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -392,13 +368,13 @@ const DoctorDashboard: React.FC = () => {
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-semibold text-gray-900">Recent Reports</h2>
-              <a
-                href="/doctor/submit"
+              <Link
+                to="/doctor/submit"
                 className="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center space-x-1"
               >
                 <span>Submit New</span>
                 <FileText className="w-4 h-4" />
-              </a>
+              </Link>
             </div>
           </div>
           <div className="p-6">
@@ -408,6 +384,9 @@ const DoctorDashboard: React.FC = () => {
               <div className="space-y-4">
                 {reports.slice(0, 5).map((r: any) => {
                   const status: ReportStatus = (String(r.status || 'submitted').toLowerCase() as ReportStatus);
+                  const pid = typeof r.patientId === 'object'
+                    ? r.patientId?._id || r.patientId?.id || r.patientId?.value
+                    : r.patientId;
                   return (
                     <div
                       key={r._id}
@@ -416,7 +395,7 @@ const DoctorDashboard: React.FC = () => {
                       <div>
                         <p className="font-semibold text-gray-900">{display(r.reportType)}</p>
                         <p className="text-sm text-gray-600">
-                          Patient ID: {last6Alnum(r.patientId)} • {fmt(r.createdAt)}
+                          Patient ID: {display(pid)} • {fmt(r.createdAt)}
                         </p>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -474,7 +453,7 @@ const DoctorDashboard: React.FC = () => {
    PATIENT MANAGEMENT
 ========================= */
 const PatientManagement: React.FC = () => {
-  const { patients, loading, addPatient, deletePatient, fetchPatients } = useDoctor();
+  const { patients, reports, loading, addPatient, deletePatient, fetchPatients, fetchReports } = useDoctor();
 
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [showAddPatient, setShowAddPatient] = useState<boolean>(false);
@@ -488,9 +467,8 @@ const PatientManagement: React.FC = () => {
 
   useEffect(() => {
     fetchPatients();
+    fetchReports();
   }, []); // eslint-disable-line
-
-
 
   const nPatients = useMemo<NormalizedPatient[]>(
     () => (patients as BackendPatient[]).map(normalizePatient),
@@ -509,11 +487,163 @@ const PatientManagement: React.FC = () => {
     );
   }, [nPatients, searchTerm]);
 
+  // Helper: get pid string from report.patientId
+  const getPid = (r: any): string | undefined => {
+    if (!r) return undefined;
+    const pid = typeof r.patientId === 'object' && r.patientId !== null
+      ? (r.patientId._id || r.patientId.id || r.patientId.value)
+      : r.patientId;
+    return pid ? String(pid) : undefined;
+  };
+
+  // Build the left detail pane HTML for a report
+  const reportDetailsHTML = (r: any) => {
+    const statusText = r?.status ? String(r.status) : 'submitted';
+    return `
+      <div style="text-align:left; line-height:1.55">
+        <div style="font-weight:800; font-size:18px; margin-bottom:6px">${display(r.reportType)}</div>
+        <div style="color:#475569; font-size:13px; margin-bottom:12px">
+          <b>Report ID:</b> ${display(r._id)} &nbsp; • &nbsp;
+          <b>Status:</b> ${display(statusText)} &nbsp; • &nbsp;
+          <b>Created:</b> ${fmt(r.createdAt)} &nbsp; • &nbsp;
+          <b>Updated:</b> ${fmt(r.updatedAt)}
+        </div>
+
+        <div style="margin-bottom:10px">
+          <div style="font-weight:700; margin-bottom:6px">Clinical Details</div>
+          <div><b>Primary Diagnosis:</b> ${display(r.primaryDiagnosis)}</div>
+          <div><b>Treatment Provided:</b><pre style="white-space:pre-wrap;margin:6px 0 0">${display(r.treatmentProvided)}</pre></div>
+          <div><b>Medications Prescribed:</b> ${display(r.medicationsPrescribed)}</div>
+          <div><b>Lab Results:</b> ${display(r.labResults)}</div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <div style="font-weight:700; margin-bottom:6px">Follow-up</div>
+          <div><b>Follow-up Date:</b> ${r?.followUpDate ? fmt(r.followUpDate) : '—'}</div>
+          <div><b>Recommendations:</b> ${display(r.recommendations)}</div>
+        </div>
+
+        <div>
+          <div style="font-weight:700; margin-bottom:6px">Submitted By</div>
+          <div><b>Name:</b> ${display(r?.createdBy?.name || '—')}</div>
+          <div><b>Email:</b> ${display(r?.createdBy?.email || '—')}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  // View History: modal with right table + left detail panel
+  const handleViewHistory = async (p: NormalizedPatient) => {
+    await fetchReports();
+
+    const ptReports = (reports as any[]).filter(r => {
+      const pid = getPid(r);
+      return pid && String(pid) === String(p._id);
+    });
+
+    if (ptReports.length === 0) {
+      Swal.fire('No Reports', `No reports found for ${display(p.name)}.`, 'info');
+      return;
+    }
+
+    // Sort by createdAt desc
+    ptReports.sort((a, b) => {
+      const da = new Date(a.createdAt || 0).getTime();
+      const db = new Date(b.createdAt || 0).getTime();
+      return db - da;
+    });
+
+    const first = ptReports[0];
+
+    const rowsHTML = ptReports.map((r) => {
+      const status: ReportStatus = (String(r.status || 'submitted').toLowerCase() as ReportStatus);
+      const badge =
+        status === 'approved' ? 'background:#dcfce7;color:#166534' :
+        status === 'pending'  ? 'background:#fef9c3;color:#854d0e' :
+                                'background:#dbeafe;color:#1e3a8a';
+      return `
+        <tr class="hover:bg-gray-50">
+          <td class="px-3 py-2">${display(r.reportType)}</td>
+          <td class="px-3 py-2">
+            <span style="font-size:12px;padding:2px 8px;border-radius:9999px;${badge}">
+              ${display(r.status || 'submitted')}
+            </span>
+          </td>
+          <td class="px-3 py-2">${fmt(r.createdAt)}</td>
+          <td class="px-3 py-2">${r?.followUpDate ? fmt(r.followUpDate) : '—'}</td>
+          <td class="px-3 py-2">
+            <button data-report-id="${r._id}" class="report-view-btn" style="color:#2563eb;padding:6px 10px;border-radius:8px;">
+              View
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const html = `
+      <div style="display:grid;grid-template-columns: minmax(320px, 1fr) 1.1fr; gap:16px; min-height:420px; align-items:start;">
+        <!-- LEFT: details panel -->
+        <div id="report-detail-pane" style="border:1px solid #e5e7eb;border-radius:12px;padding:16px;overflow:auto;max-height:520px;">
+          ${reportDetailsHTML(first)}
+        </div>
+
+        <!-- RIGHT: reports table -->
+        <div style="border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <div style="padding:12px 16px;border-bottom:1px solid #e5e7eb;">
+            <div style="font-weight:700">Reports for ${display(p.name)} <span style="color:#64748b;font-weight:500">(${ptReports.length})</span></div>
+          </div>
+          <div style="overflow:auto;max-height:520px;">
+            <table style="width:100%;font-size:14px;border-collapse:collapse;">
+              <thead style="position:sticky;top:0;background:#f8fafc;">
+                <tr style="text-align:left;color:#334155;">
+                  <th class="px-3 py-2" style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">Type</th>
+                  <th class="px-3 py-2" style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">Status</th>
+                  <th class="px-3 py-2" style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">Created</th>
+                  <th class="px-3 py-2" style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">Follow-up</th>
+                  <th class="px-3 py-2" style="padding:8px 12px;border-bottom:1px solid #e5e7eb;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHTML}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+
+    Swal.fire({
+      title: 'Patient Medical History',
+      html,
+      width: 1100,
+      showConfirmButton: true,
+      confirmButtonText: 'Close',
+      didOpen: () => {
+        // Attach click handlers to each View button
+        const container = Swal.getHtmlContainer();
+        if (!container) return;
+
+        const pane = container.querySelector('#report-detail-pane');
+        const buttons = Array.from(container.querySelectorAll<HTMLButtonElement>('.report-view-btn'));
+        buttons.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const rid = (e.currentTarget as HTMLButtonElement).getAttribute('data-report-id');
+            const report = ptReports.find(rr => String(rr._id) === String(rid));
+            if (report && pane) {
+              (pane as HTMLElement).innerHTML = reportDetailsHTML(report);
+              (pane as HTMLElement).scrollTop = 0;
+            }
+          });
+        });
+      },
+    });
+  };
+
   const handleAddPatient = async (e: React.FormEvent) => {
     e.preventDefault();
     const ageNum = parseInt(newPatient.age, 10);
 
-    // Send payload in backend’s shape
     const payload: Partial<BackendPatient> = {
       fullName: newPatient.fullName.trim(),
       email: newPatient.email.trim(),
@@ -614,17 +744,17 @@ const PatientManagement: React.FC = () => {
 
                   <div className="flex justify-end space-x-3">
                     <button
-                      onClick={() => window.alert(`Viewing medical history for ${display(p.name)}…`)}
+                      onClick={() => handleViewHistory(p)}
                       className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors"
                     >
                       View History
                     </button>
-                    <a
-                      href="/doctor/submit"
+                    <Link
+                      to={`/doctor/submit?patientId=${encodeURIComponent(String(p._id ?? ''))}`}
                       className="text-teal-600 hover:text-teal-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-teal-50 transition-colors"
                     >
                       Submit Report
-                    </a>
+                    </Link>
                     <button
                       onClick={() => handleDeletePatient(p._id)}
                       className="text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
@@ -704,7 +834,7 @@ const PatientManagement: React.FC = () => {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance ID</label>
+                  <label className="block text sm font-medium text-gray-700 mb-1">Insurance ID</label>
                   <input
                     type="text"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
@@ -747,6 +877,248 @@ const PatientManagement: React.FC = () => {
 };
 
 /* =========================
+   ALL REPORTS LIST
+========================= */
+const AllReportsPage: React.FC = () => {
+  const { reports, patients, loading, fetchReports, fetchPatients } = useDoctor();
+  const [q, setQ] = useState('');
+
+  // Build a fast lookup for patient details
+  const nPatients = useMemo<NormalizedPatient[]>(
+    () => (patients as BackendPatient[]).map(normalizePatient),
+    [patients]
+  );
+  const patientIndex = useMemo(() => {
+    const m = new Map<string, NormalizedPatient>();
+    nPatients.forEach(p => {
+      if (p._id) m.set(String(p._id), p);
+    });
+    return m;
+  }, [nPatients]);
+
+  useEffect(() => {
+    fetchReports();
+    fetchPatients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    if (!s) return reports;
+    return reports.filter((r: any) => {
+      const pid = typeof r.patientId === 'object'
+        ? r.patientId?._id || r.patientId?.id || r.patientId?.value
+        : r.patientId;
+      const p = pid ? patientIndex.get(String(pid)) : undefined;
+
+      return (
+        includesI(r._id, s) ||
+        includesI(r.reportType, s) ||
+        includesI(r.status, s) ||
+        includesI(r.primaryDiagnosis, s) ||
+        includesI(pid, s) ||
+        includesI(p?.name, s) ||
+        includesI(p?.phone, s) ||
+        includesI(p?.condition, s)
+      );
+    });
+  }, [reports, q, patientIndex]);
+
+  // Full detail modal aligned with payload + enriched patient name/condition
+  const viewReport = (r: any) => {
+    const pidObj = typeof r?.patientId === 'object' && r?.patientId !== null ? r.patientId : undefined;
+    const pid = pidObj
+      ? (pidObj._id || pidObj.id || pidObj.value)
+      : (r?.patientId ?? '—');
+    const p = pid ? patientIndex.get(String(pid)) : undefined;
+
+    const statusText = String(r?.status ?? 'submitted'); // keep original casing like "Submitted"
+    const followUp = r?.followUpDate ? fmt(r.followUpDate) : '—';
+    const createdByName = r?.createdBy?.name || '—';
+    const createdByEmail = r?.createdBy?.email || '—';
+
+    const html = `
+      <div style="text-align:left; line-height:1.6">
+        <!-- Header -->
+        <div style="font-weight:800; font-size:18px; margin-bottom:2px">${display(r.reportType)}</div>
+        <div style="color:#475569; font-size:13px; margin-bottom:12px">
+          <b>Report ID:</b> ${display(r._id)} &nbsp; • &nbsp;
+          <b>Status:</b> ${display(statusText)} &nbsp; • &nbsp;
+          <b>Created:</b> ${fmt(r.createdAt)} &nbsp; • &nbsp;
+          <b>Updated:</b> ${fmt(r.updatedAt)}
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+          <!-- LEFT -->
+          <div>
+            <div style="font-weight:700; margin-bottom:6px">Patient</div>
+            <div><b>Patient ID:</b> ${display(pid)}</div>
+            ${p ? `
+              <div><b>Name:</b> ${display(p.name)}</div>
+              <div><b>Phone:</b> ${display(p.phone)}</div>
+              <div><b>Condition:</b> ${display(p.condition)}</div>
+            ` : `
+              ${pidObj ? `
+                <div><b>Phone:</b> ${display(pidObj.phone)}</div>
+                <div><b>Email:</b> ${display(pidObj.email)}</div>
+              ` : '<div style="color:#888">No enriched patient profile found.</div>'}
+            `}
+
+            <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
+
+            <div style="font-weight:700; margin-bottom:6px">Follow-up</div>
+            <div><b>Follow-up Date:</b> ${followUp}</div>
+            <div><b>Recommendations:</b> ${display(r.recommendations)}</div>
+          </div>
+
+          <!-- RIGHT -->
+          <div>
+            <div style="font-weight:700; margin-bottom:6px">Clinical Details</div>
+            <div><b>Primary Diagnosis:</b> ${display(r.primaryDiagnosis)}</div>
+            <div><b>Treatment Provided:</b><pre style="white-space:pre-wrap;margin:6px 0 0">${display(r.treatmentProvided)}</pre></div>
+            <div><b>Medications Prescribed:</b> ${display(r.medicationsPrescribed)}</div>
+            <div><b>Lab Results:</b> ${display(r.labResults)}</div>
+
+            <hr style="margin:12px 0; border:none; border-top:1px solid #eee" />
+
+            <div style="font-weight:700; margin-bottom:6px">Submitted By</div>
+            <div><b>Name:</b> ${display(createdByName)}</div>
+            <div><b>Email:</b> ${display(createdByEmail)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+    Swal.fire({ title: 'Report Details', html, width: 1000, confirmButtonText: 'Close' });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
+          <div className="flex-1 relative">
+            <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              placeholder="Search by report id, type, status, diagnosis, patient id/name/phone/condition…"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <Link
+            to="/doctor/submit"
+            className="bg-teal-600 text-white px-6 py-3 rounded-lg hover:bg-teal-700 transition-colors flex items-center space-x-2"
+            title="Add Report"
+          >
+            <FileText className="w-5 h-5" />
+            <span>Add Report</span>
+          </Link>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900">
+            All Reports {loading ? '' : `(${filtered.length})`}
+          </h2>
+        </div>
+        <div className="p-6">
+          {loading ? (
+            <div className="text-gray-600">Loading reports…</div>
+          ) : filtered.length === 0 ? (
+            <div className="text-gray-600">No reports found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-200 rounded-lg">
+                <thead className="bg-gray-50">
+                  <tr className="text-left text-sm text-gray-700">
+                    <th className="px-4 py-3 border-b">Report</th>
+                    <th className="px-4 py-3 border-b">Patient</th>
+                    <th className="px-4 py-3 border-b">Phone</th>
+                    <th className="px-4 py-3 border-b">Condition</th>
+                    <th className="px-4 py-3 border-b">Status</th>
+                    <th className="px-4 py-3 border-b">Created</th>
+                    <th className="px-4 py-3 border-b">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((r: any) => {
+                    const status: ReportStatus = (String(r.status || 'submitted').toLowerCase() as ReportStatus);
+                    const pid = typeof r.patientId === 'object'
+                      ? r.patientId?._id || r.patientId?.id || r.patientId?.value
+                      : r.patientId;
+
+                    const p = pid ? patientIndex.get(String(pid)) : undefined;
+                    const name = p?.name ?? '—';
+                    const phone = p?.phone ?? (typeof r.patientId === 'object' ? r.patientId?.phone : undefined) ?? '—';
+                    const condition = p?.condition ?? '—';
+
+                    return (
+                      <tr key={r._id} className="text-sm hover:bg-gray-50">
+                        <td className="px-4 py-3 border-b">
+                          <div className="font-medium text-gray-900">{display(r.reportType)}</div>
+                          <div className="text-gray-500">#{display(r._id)}</div>
+                        </td>
+                        <td className="px-4 py-3 border-b">
+                          <div className="font-medium text-gray-900">{display(name)}</div>
+                          <div className="text-gray-500">ID: {display(pid)}</div>
+                        </td>
+                        <td className="px-4 py-3 border-b">{display(phone)}</td>
+                        <td className="px-4 py-3 border-b">{display(condition)}</td>
+                        <td className="px-4 py-3 border-b">
+                          <span
+                            className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                              status === 'approved'
+                                ? 'bg-green-100 text-green-800'
+                                : status === 'submitted'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}
+                          >
+                            {String(r.status || 'submitted')}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 border-b">{fmt(r.createdAt)}</td>
+                        <td className="px-4 py-3 border-b">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => viewReport(r)}
+                              className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                              title="View"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => window.alert(`Downloading report ${display(r._id)}...`)}
+                              className="p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            {status === 'pending' && (
+                              <button
+                                onClick={() => window.alert(`Editing report ${display(r._id)}...`)}
+                                className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg"
+                                title="Edit"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* =========================
    SUBMIT REPORT
 ========================= */
 type ReportForm = {
@@ -761,10 +1133,24 @@ type ReportForm = {
 };
 
 const SubmitReport: React.FC = () => {
-  const { createReport } = useDoctor();
+  const { createReport, patients, fetchPatients } = useDoctor();
+  const [searchParams] = useSearchParams();
+
+  // Ensure patients are loaded (for the dropdown)
+  useEffect(() => {
+    fetchPatients();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const nPatients = useMemo<NormalizedPatient[]>(
+    () => (patients as BackendPatient[]).map(normalizePatient).filter(p => p._id),
+    [patients]
+  );
+
+  const prefillPatientId = searchParams.get('patientId') || '';
 
   const [formData, setFormData] = useState<ReportForm>({
-    patientId: '',
+    patientId: prefillPatientId, // auto-fill from URL
     reportType: '',
     diagnosis: '',
     treatment: '',
@@ -773,6 +1159,15 @@ const SubmitReport: React.FC = () => {
     medications: '',
     labResults: '',
   });
+
+  // Keep in sync if the URL changes while on the page
+  useEffect(() => {
+    const qId = searchParams.get('patientId') || '';
+    if (qId && formData.patientId !== qId) {
+      setFormData(prev => ({ ...prev, patientId: qId }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -832,6 +1227,11 @@ const SubmitReport: React.FC = () => {
     }
   };
 
+  // Helper: label for patient in dropdown: "Name — IDtail (Phone)"
+  const idTail = (id?: string) => (id ? String(id).replace(/[^a-zA-Z0-9]/g, '').slice(-6) : '—');
+  const patientLabel = (p: NormalizedPatient) =>
+    `${display(p.name)} — ${idTail(p._id)}${p.phone ? ` (${p.phone})` : ''}`;
+
   if (showSuccess) {
     return (
       <div className="max-w-2xl mx-auto">
@@ -885,19 +1285,46 @@ const SubmitReport: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          {/* Patient selection + (optional) manual override */}
           <div className="grid md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Patient ID *</label>
-              <input
-                type="text"
-                placeholder="Enter patient ID"
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Patient <span className="text-red-500">*</span>
+              </label>
+              <select
                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                 value={formData.patientId}
                 onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
                 required
-              />
+              >
+                <option value="">— Choose a patient —</option>
+                {nPatients.map((p) => (
+                  <option key={p._id} value={String(p._id)}>
+                    {patientLabel(p)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                The value saved will be the Patient ID. Names are for identification only.
+              </p>
             </div>
 
+            {/* Optional: keep a read-only display of chosen ID or allow manual override */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Patient ID (override if needed)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter a Patient ID manually if not listed"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                value={formData.patientId}
+                onChange={(e) => setFormData({ ...formData, patientId: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Report Type *</label>
               <select
@@ -915,6 +1342,8 @@ const SubmitReport: React.FC = () => {
                 <option value="Emergency Report">Emergency Report</option>
               </select>
             </div>
+
+            <div>{/* spacer for layout symmetry */}</div>
           </div>
 
           <div>
@@ -1031,7 +1460,7 @@ const DoctorPortal: React.FC = () => {
   const menuItems = [
     { icon: <Home className="w-5 h-5" />, label: 'Dashboard', path: '/doctor' },
     { icon: <Users className="w-5 h-5" />, label: 'Patients', path: '/doctor/patients' },
-    { icon: <FileText className="w-5 h-5" />, label: 'Submit Report', path: '/doctor/submit' },
+    { icon: <FileText className="w-5 h-5" />, label: 'All Report', path: '/doctor/reports' }, // updated
   ];
 
   return (
@@ -1050,6 +1479,7 @@ const DoctorPortal: React.FC = () => {
         <Routes>
           <Route path="/" element={<DoctorDashboard />} />
           <Route path="/patients" element={<PatientManagement />} />
+          <Route path="/reports" element={<AllReportsPage />} />
           <Route path="/submit" element={<SubmitReport />} />
         </Routes>
       </PortalLayout>
