@@ -1,3 +1,4 @@
+// src/api/api.ts
 import { axiosInstance } from "./axiosInstance";
 
 export type Role = "employee" | "doctor" | "insurance";
@@ -40,27 +41,134 @@ export interface Claim {
   updatedAt?: string;
 }
 
-/* ------------------ PATIENT TYPES ------------------ */
+/* ------------------ PATIENT TYPES (FULL MATCH) ------------------ */
 export interface Patient {
   _id?: string;
-  name: string;
-  email: string;
-  phone?: string;
+  fullName: string;
   age?: number;
-  gender?: string;
-  address?: string;
+  dateOfBirth?: string | null;
+  sex?: "M" | "F" | "U";
+  phone?: string;
+  email?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  maritalStatus?: string;
+  insuredIdNumber?: string;
+  patientRelationship?: "Self" | "Spouse" | "Child" | "Other";
+  insuredName?: string;
+  insuredAddressLine1?: string;
+  insuredAddressLine2?: string;
+  insuredCity?: string;
+  insuredState?: string;
+  insuredZipCode?: string;
+  insuredPhone?: string;
+  insuredOtherInsurance?: string;
+  insurancePlanName?: string;
+  insurancePolicyNumber?: string;
+  insuranceGroupNumber?: string;
+  patientSignatureOnFile?: boolean;
+  insuredSignatureOnFile?: boolean;
+  conditionEmployment?: boolean;
+  conditionAutoAccident?: boolean;
+  conditionAutoAccidentState?: string;
+  conditionOtherAccident?: boolean;
+  otherInsuredName?: string;
+  otherInsuredPolicyNumber?: string;
+  otherInsuredGroupNumber?: string;
+  otherInsuredDateOfBirth?: string | null;
+  otherInsuredSex?: "M" | "F" | "U";
+  otherInsuredEmployer?: string;
+  otherInsuredInsurancePlanName?: string;
+  dateCurrentIllness?: string | null;
+  otherDate?: string | null;
+  referringPhysician?: string;
+  referringPhysicianNPI?: string;
+  additionalClaimInfo?: string;
+  diagnosisCodes?: string[];
+  hospitalizationFrom?: string | null;
+  hospitalizationTo?: string | null;
+  resubmissionCode?: string;
+  originalRefNumber?: string;
+  priorAuthorizationNumber?: string;
+  federalTaxId?: string;
+  patientAccountNumber?: string;
+  acceptAssignment?: boolean;
+  totalCharge?: number;
+  amountPaid?: number;
+  billingProviderInfo?: string;
+  billingProviderNPI?: string;
+  primaryCondition?: string;
+  secondaryCondition?: string;
+  tertiaryCondition?: string;
+  lastVisit?: string | null;
+  nextAppointment?: string | null;
+  status?: "Active Treatment" | "Follow-up Required" | "Discharged" | string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-/* ------------------ MEDICAL REPORT TYPES ------------------ */
+/* ------------------ MEDICAL REPORT TYPES (FULL MATCH) ------------------ */
+export interface ReportFile {
+  _id?: string;
+  fileName: string;
+  fileType: string;
+  base64Data: string;
+  createdAt?: string;
+}
+
 export interface MedicalReport {
   _id?: string;
-  patientId: string;
+  patientId: string | Patient;
   reportType: string;
   primaryDiagnosis: string;
   treatmentProvided: string;
-  createdBy?: string;
+  medicationsPrescribed?: string;
+  labResults?: string;
+  recommendations?: string;
+  followUpDate?: string | null;
+  createdBy?: string | { _id?: string; name?: string; email?: string };
+  reportFiles?: ReportFile[];
+  status?: "Submitted" | "Draft" | string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/* ------------------ INSURANCE TYPES (FULL MATCH) ------------------ */
+export interface Insurance {
+  _id?: string;
+  patientId: string | Patient;
+  insuranceProvider: string;
+  planName?: string;
+  policyNumber?: string;
+  groupNumber?: string;
+  insuredName?: string;
+  insuredIdNumber?: string;
+  insuredDateOfBirth?: string | null;
+  insuredSex?: "M" | "F" | "U";
+  insuredRelationship?: "Self" | "Spouse" | "Child" | "Other";
+  insuredAddressLine1?: string;
+  insuredAddressLine2?: string;
+  insuredCity?: string;
+  insuredState?: string;
+  insuredZipCode?: string;
+  insuredPhone?: string;
+  otherInsuranceExists?: boolean;
+  otherInsuranceName?: string;
+  otherInsurancePolicyNumber?: string;
+  otherInsuranceGroupNumber?: string;
+  accidentEmployment?: boolean;
+  accidentAuto?: boolean;
+  accidentAutoState?: string;
+  accidentOther?: boolean;
+  priorAuthorizationNumber?: string;
+  insuranceCardFrontBase64?: string;
+  insuranceCardBackBase64?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -180,8 +288,43 @@ export const api = {
     return res.data.data;
   },
 
+  async getPatientByEmail(email: string): Promise<Patient> {
+    const res = await axiosInstance.get(`/api/patients/email/search`, { params: { email } });
+    return res.data.data;
+  },
+
+  async searchPatients(keyword: string): Promise<Patient[]> {
+    const res = await axiosInstance.get(`/api/patients/search/${encodeURIComponent(keyword)}`);
+    return res.data.data;
+  },
+
   async updatePatient(id: string, data: Partial<Patient>): Promise<Patient> {
     const res = await axiosInstance.put(`/api/patients/${id}`, data);
+    return res.data.data;
+  },
+
+  async updatePatientStatus(id: string, status: Patient["status"]): Promise<Patient> {
+    const res = await axiosInstance.put(`/api/patients/status/${id}`, { status });
+    return res.data.data;
+  },
+
+  async updatePatientNextAppointment(id: string, nextAppointment: string | null): Promise<Patient> {
+    const res = await axiosInstance.put(`/api/patients/next-appointment/${id}`, { nextAppointment });
+    return res.data.data;
+  },
+
+  async updatePatientLastVisit(id: string, lastVisit: string | null): Promise<Patient> {
+    const res = await axiosInstance.put(`/api/patients/last-visit/${id}`, { lastVisit });
+    return res.data.data;
+  },
+
+  async updatePatientDiagnosis(id: string, diagnosisCodes: string[]): Promise<Patient> {
+    const res = await axiosInstance.put(`/api/patients/diagnosis/${id}`, { diagnosisCodes });
+    return res.data.data;
+  },
+
+  async updatePatientInsurance(id: string, insuranceFields: Partial<Patient>): Promise<Patient> {
+    const res = await axiosInstance.put(`/api/patients/insurance/${id}`, insuranceFields);
     return res.data.data;
   },
 
@@ -206,13 +349,87 @@ export const api = {
     return res.data.data;
   },
 
+  async getReportsByPatient(patientId: string): Promise<MedicalReport[]> {
+    const res = await axiosInstance.get(`/api/reports/patient/${patientId}`);
+    return res.data.data;
+  },
+
+  async searchReports(keyword: string): Promise<MedicalReport[]> {
+    const res = await axiosInstance.get(`/api/reports/search/${encodeURIComponent(keyword)}`);
+    return res.data.data;
+  },
+
   async updateReport(id: string, data: Partial<MedicalReport>): Promise<MedicalReport> {
     const res = await axiosInstance.put(`/api/reports/${id}`, data);
     return res.data.data;
   },
 
+  async updateReportStatus(id: string, status: MedicalReport["status"]): Promise<MedicalReport> {
+    const res = await axiosInstance.put(`/api/reports/status/${id}`, { status });
+    return res.data.data;
+  },
+
+  async addReportFiles(reportId: string, files: ReportFile[]): Promise<MedicalReport> {
+    const res = await axiosInstance.put(`/api/reports/files/${reportId}`, { files });
+    return res.data.data;
+  },
+
+  async deleteReportFile(reportId: string, fileId: string): Promise<MedicalReport> {
+    const res = await axiosInstance.delete(`/api/reports/file/${reportId}/${fileId}`);
+    return res.data.data;
+  },
+
   async deleteReport(id: string): Promise<{ message: string }> {
     const res = await axiosInstance.delete(`/api/reports/${id}`);
+    return res.data;
+  },
+
+  /** 🛡️ INSURANCE */
+  async addInsurance(data: Insurance): Promise<Insurance> {
+    const res = await axiosInstance.post("/api/insurance", data);
+    return res.data.data;
+  },
+
+  async getAllInsurance(): Promise<Insurance[]> {
+    const res = await axiosInstance.get("/api/insurance");
+    return res.data.data;
+  },
+
+  async getInsuranceById(id: string): Promise<Insurance> {
+    const res = await axiosInstance.get(`/api/insurance/${id}`);
+    return res.data.data;
+  },
+
+  async getInsuranceByPatientId(patientId: string): Promise<Insurance> {
+    const res = await axiosInstance.get(`/api/insurance/patient/${patientId}`);
+    return res.data.data;
+  },
+
+  async searchInsurance(keyword: string): Promise<Insurance[]> {
+    const res = await axiosInstance.get(`/api/insurance/search/${encodeURIComponent(keyword)}`);
+    return res.data.data;
+  },
+
+  async updateInsurance(id: string, data: Partial<Insurance>): Promise<Insurance> {
+    const res = await axiosInstance.put(`/api/insurance/${id}`, data);
+    return res.data.data;
+  },
+
+  async updateInsuranceCardImages(id: string, frontBase64?: string, backBase64?: string): Promise<Insurance> {
+    const body: any = {};
+    if (frontBase64) body.insuranceCardFrontBase64 = frontBase64;
+    if (backBase64) body.insuranceCardBackBase64 = backBase64;
+    const res = await axiosInstance.put(`/api/insurance/card-images/${id}`, body);
+    return res.data.data;
+  },
+
+  async clearOtherInsurance(id: string): Promise<Insurance> {
+    const res = await axiosInstance.put(`/api/insurance/clear-other/${id}`);
+    return res.data.data;
+  },
+
+  async deleteInsurance(id: string): Promise<{ message: string }> {
+    const res = await axiosInstance.delete(`/api/insurance/${id}`);
     return res.data;
   },
 };
