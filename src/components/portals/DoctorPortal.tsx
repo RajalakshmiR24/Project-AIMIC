@@ -238,7 +238,7 @@ const DoctorDashboard: React.FC = () => {
               <div className="text-gray-600">Loading patients…</div>
             ) : (
               <div className="space-y-4">
-                {nPatients.slice(0, 5).map((p) => (
+                {patients.slice(0, 5).map((p) => (
                   <div
                     key={p._id}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
@@ -248,15 +248,21 @@ const DoctorDashboard: React.FC = () => {
                         <Users className="w-6 h-6 text-teal-600" />
                       </div>
                       <div>
-                        <p className="font-semibold text-gray-900">{display(p.fullName)}</p>
+                        <p className="font-semibold text-gray-900">{p.fullName}</p>
                         <p className="text-sm text-gray-600">
-                          ID: {String(p._id || "").toString().slice(-6) || "—"} • Age: {display(p.age)} • {display(p.insurancePolicyNumber || p.insurancePlanName)}
+                          ID: {String(p._id).slice(-6)} • Age: {p.age} • {p.primaryCondition}
                         </p>
                       </div>
                     </div>
+
                     <div className="text-right">
-                      <p className="text-sm text-gray-600">Next: {fmt(p.nextAppointment)}</p>
-                      <p className="text-sm font-medium text-teal-600">{asPatientStatus(p.status)}</p>
+                      <p className="text-sm text-gray-600">
+                        Next: {p.nextAppointment ? fmt(p.nextAppointment) : "—"}
+                      </p>
+                      <p className="text-sm font-medium text-teal-600">
+                        {p.status || "Active"}
+                      </p>
+
                       <div className="flex items-center justify-end gap-2 mt-2">
                         <button
                           onClick={() => handleViewPatient(p._id)}
@@ -265,8 +271,9 @@ const DoctorDashboard: React.FC = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+
                         <Link
-                          to={`/doctor/submit?patientId=${encodeURIComponent(String(p._id ?? ""))}`}
+                          to={`/doctor/submit?patientId=${encodeURIComponent(p._id ?? "")}`}
                           className="p-2 text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
                           title="Submit report for this patient"
                         >
@@ -276,7 +283,10 @@ const DoctorDashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                {nPatients.length === 0 && <div className="text-gray-600">No patients yet.</div>}
+
+                {patients.length === 0 && (
+                  <div className="text-gray-600">No patients yet.</div>
+                )}
               </div>
             )}
           </div>
@@ -357,6 +367,7 @@ const PatientManagement: React.FC = () => {
     email: "",
     primaryCondition: "",
     insurancePlanName: "",
+
   });
 
   useEffect(() => {
@@ -561,102 +572,329 @@ const PatientManagement: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Patient Management {loading ? "" : `(${filteredPatients.length})`}</h2>
-        </div>
-        <div className="p-6">
-          {loading ? (
-            <div className="text-gray-600">Loading patients…</div>
-          ) : (
-            <div className="grid gap-6">
-              {filteredPatients.map((p) => (
-                <div key={p._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{display(p.fullName)}</h3>
-                        <span className="px-3 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">{asPatientStatus(p.status)}</span>
-                      </div>
-                      <p className="text-gray-600">Patient ID: {display(p._id)} • Age: {display(p.age)}</p>
-                    </div>
-                  </div>
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          Patient Management {loading ? "" : `(${filteredPatients.length})`}
+        </h2>
 
-                  <div className="grid md:grid-cols-2 gap-4 text-sm mb-4">
-                    <div className="space-y-1">
-                      <p><span className="font-medium text-gray-700">Primary Condition:</span> {display(p.primaryCondition)}</p>
-                      <p><span className="font-medium text-gray-700">Phone:</span> {display(p.phone)}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p><span className="font-medium text-gray-700">Insurance ID:</span> {display(p.insurancePolicyNumber || p.insurancePlanName)}</p>
-                      <p><span className="font-medium text-gray-700">Email:</span> {display(p.email)}</p>
-                    </div>
-                  </div>
+        {loading ? (
+          <div className="text-gray-600">Loading patients…</div>
+        ) : (
+          <>
+            <table className="w-full border border-gray-200 text-sm">
+              <thead>
+                <tr className="bg-gray-100 border-b text-gray-700">
+                  <th className="p-3 text-left">Name</th>
+                  <th className="p-3 text-left">Age</th>
+                  <th className="p-3 text-left">Phone</th>
+                  <th className="p-3 text-left">Email</th>
+                  <th className="p-3 text-left">Condition</th>
+                  <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-left">Actions</th>
+                </tr>
+              </thead>
 
-                  <div className="flex justify-end space-x-3">
-                    <button onClick={() => handleViewHistory(p)} className="text-blue-600 hover:text-blue-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors">View History</button>
-                    <Link to={`/doctor/submit?patientId=${encodeURIComponent(String(p._id ?? ""))}`} className="text-teal-600 hover:text-teal-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-teal-50 transition-colors">Submit Report</Link>
-                    <button onClick={() => handleDeletePatient(p._id)} className="text-red-600 hover:text-red-700 font-medium text-sm px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">Remove</button>
-                  </div>
-                </div>
-              ))}
-              {filteredPatients.length === 0 && <div className="text-center text-gray-600 py-12">No patients match your search.</div>}
-            </div>
-          )}
+              <tbody>
+                {filteredPatients.map((p) => (
+                  <tr key={p._id} className="border-b hover:bg-gray-50">
+                    <td className="p-3">{display(p.fullName)}</td>
+                    <td className="p-3">{display(p.age)}</td>
+                    <td className="p-3">{display(p.phone)}</td>
+                    <td className="p-3">{display(p.email)}</td>
+                    <td className="p-3">{display(p.primaryCondition)}</td>
+                    <td className="p-3">
+                      <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-800 text-xs">
+                        {asPatientStatus(p.status)}
+                      </span>
+                    </td>
+                    <td className="p-3 flex items-center space-x-3">
+                      <button
+                        onClick={() => handleViewHistory(p)}
+                        className="text-blue-600 hover:text-blue-700 font-medium"
+                      >
+                        View
+                      </button>
+
+                      <Link
+                        to={`/doctor/submit?patientId=${encodeURIComponent(
+                          String(p._id ?? "")
+                        )}`}
+                        className="text-teal-600 hover:text-teal-700 font-medium"
+                      >
+                        Report
+                      </Link>
+
+                      <button
+                        onClick={() => handleDeletePatient(p._id)}
+                        className="text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredPatients.length === 0 && (
+                  <tr>
+                    <td className="text-center text-gray-600 py-6">
+                      No patients match your search.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+
+     {showAddPatient && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-2xl max-w-4xl w-full">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xl font-bold text-gray-900">Add New Patient</h3>
+          <button
+            onClick={() => setShowAddPatient(false)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
-      {showAddPatient && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h3 className="text-xl font-bold text-gray-900">Add New Patient</h3>
-                <button onClick={() => setShowAddPatient(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+      <form onSubmit={handleAddPatient} className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          {/* LEFT SIDE */}
+          <div className="space-y-4">
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input
+                  required
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.fullName || ""}
+                  onChange={(e) => setNewPatient((s) => ({ ...s, fullName: e.target.value }))}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Age *</label>
+                <input
+                  type="number"
+                  min={0}
+                  required
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.age ?? ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({
+                      ...s,
+                      age: e.target.value ? Number(e.target.value) : undefined,
+                    }))
+                  }
+                />
               </div>
             </div>
-            <form onSubmit={handleAddPatient} className="p-6 space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                  <input required className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" value={newPatient.fullName || ""} onChange={(e) => setNewPatient((s) => ({ ...s, fullName: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
-                  <input type="number" min={0} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" value={newPatient.age ?? ""} onChange={(e) => setNewPatient((s) => ({ ...s, age: e.target.value ? Number(e.target.value) : undefined }))} />
-                </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sex</label>
+                <select
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.sex || ""}
+                  onChange={(e) => setNewPatient((s) => ({ ...s, sex: e.target.value }))}
+                >
+                  <option value="">Select</option>
+                  <option value="M">Male</option>
+                  <option value="F">Female</option>
+                  <option value="U">Unknown</option>
+                </select>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                  <input type="tel" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" value={newPatient.phone || ""} onChange={(e) => setNewPatient((s) => ({ ...s, phone: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input type="email" className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" value={newPatient.email || ""} onChange={(e) => setNewPatient((s) => ({ ...s, email: e.target.value }))} />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Birth Date</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.birthDate || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, birthDate: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
+                <input
+                  type="tel"
+                  required
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.phone || ""}
+                  onChange={(e) => setNewPatient((s) => ({ ...s, phone: e.target.value }))}
+                />
               </div>
 
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance ID</label>
-                  <input className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" value={newPatient.insurancePlanName || ""} onChange={(e) => setNewPatient((s) => ({ ...s, insurancePlanName: e.target.value }))} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Primary Condition</label>
-                  <input className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent" value={newPatient.primaryCondition || ""} onChange={(e) => setNewPatient((s) => ({ ...s, primaryCondition: e.target.value }))} />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input
+                  type="email"
+                  required
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.email || ""}
+                  onChange={(e) => setNewPatient((s) => ({ ...s, email: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.addressLine1 || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, addressLine1: e.target.value }))
+                  }
+                />
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => setShowAddPatient(false)} className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
-                <button type="submit" className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors">Add Patient</button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500"
+                  value={newPatient.addressLine2 || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, addressLine2: e.target.value }))
+                  }
+                />
               </div>
-            </form>
+            </div>
+
           </div>
+
+          {/* RIGHT SIDE */}
+          <div className="space-y-4">
+
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.city || ""}
+                  onChange={(e) => setNewPatient((s) => ({ ...s, city: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.state || ""}
+                  onChange={(e) => setNewPatient((s) => ({ ...s, state: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Zip Code</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.zipCode || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, zipCode: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Insurance ID</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.insuranceId || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, insuranceId: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Primary Condition</label>
+                <input
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.primaryCondition || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, primaryCondition: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                className="w-full p-3 border border-gray-300 rounded-lg"
+                value={newPatient.status || ""}
+                onChange={(e) => setNewPatient((s) => ({ ...s, status: e.target.value }))}
+              >
+                <option value="">Select</option>
+                <option value="Active Treatment">Active Treatment</option>
+                <option value="Follow-up Required">Follow-up Required</option>
+                <option value="Discharged">Discharged</option>
+              </select>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Last Visit</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.lastVisit || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, lastVisit: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Next Appointment</label>
+                <input
+                  type="date"
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  value={newPatient.nextAppointment || ""}
+                  onChange={(e) =>
+                    setNewPatient((s) => ({ ...s, nextAppointment: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+          </div>
+
         </div>
-      )}
+
+        <div className="flex justify-end space-x-3 pt-6">
+          <button
+            type="button"
+            onClick={() => setShowAddPatient(false)}
+            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+          >
+            Add Patient
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };

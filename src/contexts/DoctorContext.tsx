@@ -11,21 +11,20 @@ import {
   api,
   Patient as PatientType,
   MedicalReport as MedicalReportType,
-  Insurance as InsuranceType,
+  ReportFile,
 } from "../api/api";
 
 type LoadingState = {
   patients: boolean;
   reports: boolean;
-  insurance: boolean;
 };
 
 export interface DoctorContextShape {
   patients: PatientType[];
   reports: MedicalReportType[];
-  insuranceRecords: InsuranceType[];
   loading: boolean;
   moreLoading: LoadingState;
+
   // patient methods
   fetchPatients: () => Promise<void>;
   getPatient: (id: string) => Promise<PatientType | null>;
@@ -47,16 +46,11 @@ export interface DoctorContextShape {
   updateReport: (id: string, payload: Partial<MedicalReportType>) => Promise<MedicalReportType>;
   deleteReport: (id: string) => Promise<void>;
   searchReports: (q: string) => Promise<MedicalReportType[]>;
-  addReportFiles: (reportId: string, files: any[]) => Promise<MedicalReportType>;
+  addReportFiles: (reportId: string, files: ReportFile[]) => Promise<MedicalReportType>;
   deleteReportFile: (reportId: string, fileId: string) => Promise<MedicalReportType>;
-
-  // insurance
-  fetchInsurance: () => Promise<void>;
-  getInsuranceByPatient: (patientId: string) => Promise<InsuranceType | null>;
-  addInsurance: (payload: Partial<InsuranceType>) => Promise<InsuranceType>;
-  updateInsurance: (id: string, payload: Partial<InsuranceType>) => Promise<InsuranceType>;
-  deleteInsurance: (id: string) => Promise<void>;
-  searchInsurance: (q: string) => Promise<InsuranceType[]>;
+  addProcedureToReport: (reportId: string, procedure: any) => Promise<MedicalReportType>;
+  updateReportServiceDates: (reportId: string, from?: string | null, to?: string | null) => Promise<MedicalReportType>;
+  addReferringProviderToReport: (reportId: string, name?: string, npi?: string) => Promise<MedicalReportType>;
 }
 
 const DoctorContext = createContext<DoctorContextShape | undefined>(undefined);
@@ -70,15 +64,13 @@ export const useDoctor = (): DoctorContextShape => {
 export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [patients, setPatients] = useState<PatientType[]>([]);
   const [reports, setReports] = useState<MedicalReportType[]>([]);
-  const [insuranceRecords, setInsuranceRecords] = useState<InsuranceType[]>([]);
   const [loadingState, setLoadingState] = useState<LoadingState>({
     patients: false,
     reports: false,
-    insurance: false,
   });
 
   const loading = useMemo(() => {
-    return loadingState.patients || loadingState.reports || loadingState.insurance;
+    return loadingState.patients || loadingState.reports;
   }, [loadingState]);
 
   /* ----------------------- PATIENTS ----------------------- */
@@ -197,12 +189,11 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const searchReports = async (q: string): Promise<MedicalReportType[]> => {
     const res = await api.searchReports(q);
-    // Keep local cache refreshed
     await fetchReports();
     return res || [];
   };
 
-  const addReportFiles = async (reportId: string, files: any[]): Promise<MedicalReportType> => {
+  const addReportFiles = async (reportId: string, files: ReportFile[]): Promise<MedicalReportType> => {
     const r = await api.addReportFiles(reportId, files);
     await fetchReports();
     return r;
@@ -214,61 +205,34 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return r;
   };
 
-  /* ----------------------- INSURANCE ----------------------- */
-  const fetchInsurance = async (): Promise<void> => {
-    setLoadingState((s) => ({ ...s, insurance: true }));
-    try {
-      const data = await api.getAllInsurance();
-      setInsuranceRecords(data || []);
-    } finally {
-      setLoadingState((s) => ({ ...s, insurance: false }));
-    }
+  const addProcedureToReport = async (reportId: string, procedure: any): Promise<MedicalReportType> => {
+    const r = await api.addProcedure(reportId, procedure);
+    await fetchReports();
+    return r;
   };
 
-  const getInsuranceByPatient = async (patientId: string): Promise<InsuranceType | null> => {
-    try {
-      const rec = await api.getInsuranceByPatientId(patientId);
-      return rec || null;
-    } catch {
-      return null;
-    }
+  const updateReportServiceDates = async (reportId: string, from?: string | null, to?: string | null): Promise<MedicalReportType> => {
+    const r = await api.updateServiceDates(reportId, from, to);
+    await fetchReports();
+    return r;
   };
 
-  const addInsurance = async (payload: Partial<InsuranceType>): Promise<InsuranceType> => {
-    const created = await api.addInsurance(payload as InsuranceType);
-    await fetchInsurance();
-    return created;
-  };
-
-  const updateInsurance = async (id: string, payload: Partial<InsuranceType>): Promise<InsuranceType> => {
-    const updated = await api.updateInsurance(id, payload);
-    await fetchInsurance();
-    return updated;
-  };
-
-  const deleteInsurance = async (id: string): Promise<void> => {
-    await api.deleteInsurance(id);
-    await fetchInsurance();
-  };
-
-  const searchInsurance = async (q: string): Promise<InsuranceType[]> => {
-    const res = await api.searchInsurance(q);
-    return res || [];
+  const addReferringProviderToReport = async (reportId: string, name?: string, npi?: string): Promise<MedicalReportType> => {
+    const r = await api.addReferringProvider(reportId, name, npi);
+    await fetchReports();
+    return r;
   };
 
   /* ----------------------- EFFECTS ----------------------- */
   useEffect(() => {
-    // initial load
     fetchPatients();
     fetchReports();
-    fetchInsurance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ctx: DoctorContextShape = {
     patients,
     reports,
-    insuranceRecords,
     loading,
     moreLoading: loadingState,
     fetchPatients,
@@ -292,13 +256,9 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     searchReports,
     addReportFiles,
     deleteReportFile,
-
-    fetchInsurance,
-    getInsuranceByPatient,
-    addInsurance,
-    updateInsurance,
-    deleteInsurance,
-    searchInsurance,
+    addProcedureToReport,
+    updateReportServiceDates,
+    addReferringProviderToReport,
   };
 
   return <DoctorContext.Provider value={ctx}>{children}</DoctorContext.Provider>;

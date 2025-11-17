@@ -22,7 +22,7 @@ export interface User {
   role: Role;
 }
 
-/* ------------------ CLAIMS TYPES ------------------ */
+/* ------------------ CLAIM TYPES ------------------ */
 export interface Claim {
   _id?: string;
   claimNumber: string;
@@ -41,13 +41,15 @@ export interface Claim {
   updatedAt?: string;
 }
 
-/* ------------------ PATIENT TYPES (FULL MATCH) ------------------ */
+/* ------------------ PATIENT TYPES ------------------ */
 export interface Patient {
+
   _id?: string;
   fullName: string;
   age?: number;
   dateOfBirth?: string | null;
-  sex?: "M" | "F" | "U";
+  birthDate?: string | null;
+  sex?: string | undefined
   phone?: string;
   email?: string;
   addressLine1?: string;
@@ -66,6 +68,7 @@ export interface Patient {
   insuredState?: string;
   insuredZipCode?: string;
   insuredPhone?: string;
+  insuranceId?: string;
   insuredOtherInsurance?: string;
   insurancePlanName?: string;
   insurancePolicyNumber?: string;
@@ -113,7 +116,7 @@ export interface Patient {
   updatedAt?: string;
 }
 
-/* ------------------ MEDICAL REPORT TYPES (FULL MATCH) ------------------ */
+/* ------------------ MEDICAL REPORT TYPES ------------------ */
 export interface ReportFile {
   _id?: string;
   fileName: string;
@@ -122,11 +125,20 @@ export interface ReportFile {
   createdAt?: string;
 }
 
+export interface ProcedureCode {
+  cpt: string;
+  modifier?: string;
+  diagnosisPointers?: string[];
+  charges?: number;
+  units?: number;
+}
+
 export interface MedicalReport {
   _id?: string;
   patientId: string | Patient;
   reportType: string;
   primaryDiagnosis: string;
+  secondaryDiagnosis?: string[];
   treatmentProvided: string;
   medicationsPrescribed?: string;
   labResults?: string;
@@ -134,12 +146,17 @@ export interface MedicalReport {
   followUpDate?: string | null;
   createdBy?: string | { _id?: string; name?: string; email?: string };
   reportFiles?: ReportFile[];
+  procedureCodes?: ProcedureCode[];
+  serviceDateFrom?: string | null;
+  serviceDateTo?: string | null;
+  referringProviderName?: string;
+  referringProviderNPI?: string;
   status?: "Submitted" | "Draft" | string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-/* ------------------ INSURANCE TYPES (FULL MATCH) ------------------ */
+/* ------------------ INSURANCE TYPES ------------------ */
 export interface Insurance {
   _id?: string;
   patientId: string | Patient;
@@ -162,11 +179,15 @@ export interface Insurance {
   otherInsuranceName?: string;
   otherInsurancePolicyNumber?: string;
   otherInsuranceGroupNumber?: string;
-  accidentEmployment?: boolean;
-  accidentAuto?: boolean;
-  accidentAutoState?: string;
-  accidentOther?: boolean;
+  employmentRelated?: boolean;
+  autoAccident?: boolean;
+  autoAccidentState?: string;
+  otherAccident?: boolean;
   priorAuthorizationNumber?: string;
+  outsideLab?: boolean;
+  outsideLabCharges?: number;
+  hospitalizationFrom?: string | null;
+  hospitalizationTo?: string | null;
   insuranceCardFrontBase64?: string;
   insuranceCardBackBase64?: string;
   createdAt?: string;
@@ -190,10 +211,9 @@ setAuthHeader(localStorage.getItem(STORAGE_TOKEN));
    API SERVICE
 ===================================================== */
 export const api = {
-  /** ------------------ AUTH SECTION ------------------ **/
+  /** ------------------ AUTH ------------------ **/
   async login(credentials: LoginCredentials): Promise<any> {
     const res = await axiosInstance.post("/api/auth/login", credentials);
-
     const token =
       res.data?.token ||
       res.data?.accessToken ||
@@ -201,18 +221,15 @@ export const api = {
       res.data?.id_token ||
       res.data?.data?.token ||
       res.data?.data?.accessToken;
-
     if (token) {
       localStorage.setItem(STORAGE_TOKEN, token);
       setAuthHeader(token);
     }
-
     return res.data;
   },
 
   async register(data: RegisterData): Promise<any> {
     const res = await axiosInstance.post("/api/auth/register", data);
-
     const token =
       res.data?.token ||
       res.data?.accessToken ||
@@ -220,12 +237,10 @@ export const api = {
       res.data?.id_token ||
       res.data?.data?.token ||
       res.data?.data?.accessToken;
-
     if (token) {
       localStorage.setItem(STORAGE_TOKEN, token);
       setAuthHeader(token);
     }
-
     return res.data;
   },
 
@@ -234,7 +249,7 @@ export const api = {
     return res.data;
   },
 
-  /** ------------------ CLAIMS SECTION ------------------ **/
+  /** ------------------ CLAIMS ------------------ **/
   async getAllClaims(): Promise<Claim[]> {
     const res = await axiosInstance.get("/api/claims");
     return res.data;
@@ -270,9 +285,7 @@ export const api = {
     return res.data;
   },
 
-  /** ------------------ DOCTOR SECTION ------------------ **/
-
-  /** 👨‍⚕️ PATIENTS */
+  /** ------------------ PATIENTS ------------------ **/
   async addPatient(data: Patient): Promise<Patient> {
     const res = await axiosInstance.post("/api/patients", data);
     return res.data.data;
@@ -333,7 +346,7 @@ export const api = {
     return res.data;
   },
 
-  /** 📋 MEDICAL REPORTS */
+  /** ------------------ MEDICAL REPORTS ------------------ **/
   async createReport(data: MedicalReport): Promise<MedicalReport> {
     const res = await axiosInstance.post("/api/reports", data);
     return res.data.data;
@@ -379,12 +392,33 @@ export const api = {
     return res.data.data;
   },
 
+  async addProcedure(reportId: string, procedure: ProcedureCode): Promise<MedicalReport> {
+    const res = await axiosInstance.post(`/api/reports/procedure/${reportId}`, procedure);
+    return res.data.data;
+  },
+
+  async updateServiceDates(reportId: string, from?: string | null, to?: string | null): Promise<MedicalReport> {
+    const body: any = {};
+    if (from !== undefined) body.serviceDateFrom = from;
+    if (to !== undefined) body.serviceDateTo = to;
+    const res = await axiosInstance.put(`/api/reports/service-dates/${reportId}`, body);
+    return res.data.data;
+  },
+
+  async addReferringProvider(reportId: string, name?: string, npi?: string): Promise<MedicalReport> {
+    const body: any = {};
+    if (name !== undefined) body.referringProviderName = name;
+    if (npi !== undefined) body.referringProviderNPI = npi;
+    const res = await axiosInstance.put(`/api/reports/referring/${reportId}`, body);
+    return res.data.data;
+  },
+
   async deleteReport(id: string): Promise<{ message: string }> {
     const res = await axiosInstance.delete(`/api/reports/${id}`);
     return res.data;
   },
 
-  /** 🛡️ INSURANCE */
+  /** ------------------ INSURANCE ------------------ **/
   async addInsurance(data: Insurance): Promise<Insurance> {
     const res = await axiosInstance.post("/api/insurance", data);
     return res.data.data;
@@ -406,7 +440,7 @@ export const api = {
   },
 
   async searchInsurance(keyword: string): Promise<Insurance[]> {
-    const res = await axiosInstance.get(`/api/insurance/search/${encodeURIComponent(keyword)}`);
+    const res = await axiosInstance.get(`/api/insurance/search`, { params: { keyword } });
     return res.data.data;
   },
 
@@ -420,6 +454,24 @@ export const api = {
     if (frontBase64) body.insuranceCardFrontBase64 = frontBase64;
     if (backBase64) body.insuranceCardBackBase64 = backBase64;
     const res = await axiosInstance.put(`/api/insurance/card-images/${id}`, body);
+    return res.data.data;
+  },
+
+  async updateAccidents(id: string, payload: {
+    employmentRelated?: boolean;
+    autoAccident?: boolean;
+    autoAccidentState?: string;
+    otherAccident?: boolean;
+  }): Promise<Insurance> {
+    const res = await axiosInstance.put(`/api/insurance/accidents/${id}`, payload);
+    return res.data.data;
+  },
+
+  async updateHospitalization(id: string, from?: string | null, to?: string | null): Promise<Insurance> {
+    const body: any = {};
+    if (from !== undefined) body.hospitalizationFrom = from;
+    if (to !== undefined) body.hospitalizationTo = to;
+    const res = await axiosInstance.put(`/api/insurance/hospitalization/${id}`, body);
     return res.data.data;
   },
 
