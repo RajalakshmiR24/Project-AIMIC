@@ -7,12 +7,15 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+
 import {
-  api,
   Patient as PatientType,
   MedicalReport as MedicalReportType,
   ReportFile,
-} from "../api/api";
+  ProcedureCode
+} from "../api/types";
+
+import { doctorApi } from "../api/doctor.api";
 
 type LoadingState = {
   patients: boolean;
@@ -25,20 +28,19 @@ export interface DoctorContextShape {
   loading: boolean;
   moreLoading: LoadingState;
 
-  // patient methods
   fetchPatients: () => Promise<void>;
   getPatient: (id: string) => Promise<PatientType | null>;
   addPatient: (p: Partial<PatientType>) => Promise<PatientType>;
   updatePatient: (id: string, payload: Partial<PatientType>) => Promise<PatientType>;
   deletePatient: (id: string) => Promise<void>;
   searchPatients: (q: string) => Promise<PatientType[]>;
+
   updatePatientStatus: (id: string, status: PatientType["status"]) => Promise<PatientType>;
   updatePatientNextAppointment: (id: string, nextAppointment: string | null) => Promise<PatientType>;
   updatePatientLastVisit: (id: string, lastVisit: string | null) => Promise<PatientType>;
   updatePatientDiagnosis: (id: string, codes: string[]) => Promise<PatientType>;
   updatePatientInsurance: (id: string, payload: Partial<PatientType>) => Promise<PatientType>;
 
-  // reports
   fetchReports: () => Promise<void>;
   fetchReportsByPatient: (patientId: string) => Promise<MedicalReportType[]>;
   getReport: (id: string) => Promise<MedicalReportType | null>;
@@ -46,9 +48,11 @@ export interface DoctorContextShape {
   updateReport: (id: string, payload: Partial<MedicalReportType>) => Promise<MedicalReportType>;
   deleteReport: (id: string) => Promise<void>;
   searchReports: (q: string) => Promise<MedicalReportType[]>;
+
   addReportFiles: (reportId: string, files: ReportFile[]) => Promise<MedicalReportType>;
   deleteReportFile: (reportId: string, fileId: string) => Promise<MedicalReportType>;
-  addProcedureToReport: (reportId: string, procedure: any) => Promise<MedicalReportType>;
+
+  addProcedureToReport: (reportId: string, procedure: ProcedureCode) => Promise<MedicalReportType>;
   updateReportServiceDates: (reportId: string, from?: string | null, to?: string | null) => Promise<MedicalReportType>;
   addReferringProviderToReport: (reportId: string, name?: string, npi?: string) => Promise<MedicalReportType>;
 }
@@ -69,197 +73,201 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     reports: false,
   });
 
-  const loading = useMemo(() => {
-    return loadingState.patients || loadingState.reports;
-  }, [loadingState]);
+  const loading = useMemo(
+    () => loadingState.patients || loadingState.reports,
+    [loadingState]
+  );
 
-  /* ----------------------- PATIENTS ----------------------- */
-  const fetchPatients = async (): Promise<void> => {
-    setLoadingState((s) => ({ ...s, patients: true }));
+  /* ---------------------------------------------------------
+     PATIENT OPERATIONS
+  --------------------------------------------------------- */
+  const fetchPatients = async () => {
+    setLoadingState(s => ({ ...s, patients: true }));
     try {
-      const data = await api.getAllPatients();
+      const data = await doctorApi.getAllPatients();
       setPatients(data || []);
     } finally {
-      setLoadingState((s) => ({ ...s, patients: false }));
+      setLoadingState(s => ({ ...s, patients: false }));
     }
   };
 
-  const getPatient = async (id: string): Promise<PatientType | null> => {
+  const getPatient = async (id: string) => {
     try {
-      const p = await api.getPatientById(id);
-      return p || null;
+      return await doctorApi.getPatientById(id);
     } catch {
       return null;
     }
   };
 
-  const addPatient = async (payload: Partial<PatientType>): Promise<PatientType> => {
-    const created = await api.addPatient(payload as PatientType);
+  const addPatient = async (payload: Partial<PatientType>) => {
+    const created = await doctorApi.addPatient(payload as PatientType);
     await fetchPatients();
     return created;
   };
 
-  const updatePatient = async (id: string, payload: Partial<PatientType>): Promise<PatientType> => {
-    const updated = await api.updatePatient(id, payload);
+  const updatePatient = async (id: string, payload: Partial<PatientType>) => {
+    const updated = await doctorApi.updatePatient(id, payload);
     await fetchPatients();
     return updated;
   };
 
-  const deletePatient = async (id: string): Promise<void> => {
-    await api.deletePatient(id);
+  const deletePatient = async (id: string) => {
+    await doctorApi.deletePatient(id);
     await fetchPatients();
   };
 
-  const searchPatients = async (q: string): Promise<PatientType[]> => {
-    const res = await api.searchPatients(q);
-    return res || [];
+  const searchPatients = async (q: string) => {
+    return await doctorApi.searchPatients(q);
   };
 
   const updatePatientStatus = async (id: string, status: PatientType["status"]) => {
-    const updated = await api.updatePatientStatus(id, status);
+    const updated = await doctorApi.updatePatientStatus(id, status);
     await fetchPatients();
     return updated;
   };
 
   const updatePatientNextAppointment = async (id: string, nextAppointment: string | null) => {
-    const updated = await api.updatePatientNextAppointment(id, nextAppointment);
+    const updated = await doctorApi.updatePatientNextAppointment(id, nextAppointment);
     await fetchPatients();
     return updated;
   };
 
   const updatePatientLastVisit = async (id: string, lastVisit: string | null) => {
-    const updated = await api.updatePatientLastVisit(id, lastVisit);
+    const updated = await doctorApi.updatePatientLastVisit(id, lastVisit);
     await fetchPatients();
     return updated;
   };
 
   const updatePatientDiagnosis = async (id: string, codes: string[]) => {
-    const updated = await api.updatePatientDiagnosis(id, codes);
+    const updated = await doctorApi.updatePatientDiagnosis(id, codes);
     await fetchPatients();
     return updated;
   };
 
   const updatePatientInsurance = async (id: string, payload: Partial<PatientType>) => {
-    const updated = await api.updatePatientInsurance(id, payload);
+    const updated = await doctorApi.updatePatientInsurance(id, payload);
     await fetchPatients();
     return updated;
   };
 
-  /* ----------------------- REPORTS ----------------------- */
-  const fetchReports = async (): Promise<void> => {
-    setLoadingState((s) => ({ ...s, reports: true }));
+  /* ---------------------------------------------------------
+     REPORT OPERATIONS
+  --------------------------------------------------------- */
+  const fetchReports = async () => {
+    setLoadingState(s => ({ ...s, reports: true }));
     try {
-      const data = await api.getAllReports();
+      const data = await doctorApi.getAllReports();
       setReports(data || []);
     } finally {
-      setLoadingState((s) => ({ ...s, reports: false }));
+      setLoadingState(s => ({ ...s, reports: false }));
     }
   };
 
-  const fetchReportsByPatient = async (patientId: string): Promise<MedicalReportType[]> => {
-    const data = await api.getReportsByPatient(patientId);
-    return data || [];
-  };
+  const fetchReportsByPatient = async (pid: string) =>
+    await doctorApi.getReportsByPatient(pid);
 
-  const getReport = async (id: string): Promise<MedicalReportType | null> => {
+  const getReport = async (id: string) => {
     try {
-      const r = await api.getReportById(id);
-      return r || null;
+      return await doctorApi.getReportById(id);
     } catch {
       return null;
     }
   };
 
-  const createReport = async (payload: Partial<MedicalReportType>): Promise<MedicalReportType> => {
-    const created = await api.createReport(payload as MedicalReportType);
+  const createReport = async (payload: Partial<MedicalReportType>) => {
+    const created = await doctorApi.createReport(payload as MedicalReportType);
     await fetchReports();
     return created;
   };
 
-  const updateReport = async (id: string, payload: Partial<MedicalReportType>): Promise<MedicalReportType> => {
-    const updated = await api.updateReport(id, payload);
+  const updateReport = async (id: string, payload: Partial<MedicalReportType>) => {
+    const updated = await doctorApi.updateReport(id, payload);
     await fetchReports();
     return updated;
   };
 
-  const deleteReport = async (id: string): Promise<void> => {
-    await api.deleteReport(id);
+  const deleteReport = async (id: string) => {
+    await doctorApi.deleteReport(id);
     await fetchReports();
   };
 
-  const searchReports = async (q: string): Promise<MedicalReportType[]> => {
-    const res = await api.searchReports(q);
+  const searchReports = async (q: string) => {
+    const res = await doctorApi.searchReports(q);
     await fetchReports();
     return res || [];
   };
 
-  const addReportFiles = async (reportId: string, files: ReportFile[]): Promise<MedicalReportType> => {
-    const r = await api.addReportFiles(reportId, files);
+  const addReportFiles = async (reportId: string, files: ReportFile[]) => {
+    const r = await doctorApi.addReportFiles(reportId, files);
     await fetchReports();
     return r;
   };
 
-  const deleteReportFile = async (reportId: string, fileId: string): Promise<MedicalReportType> => {
-    const r = await api.deleteReportFile(reportId, fileId);
+  const deleteReportFile = async (reportId: string, fileId: string) => {
+    const r = await doctorApi.deleteReportFile(reportId, fileId);
     await fetchReports();
     return r;
   };
 
-  const addProcedureToReport = async (reportId: string, procedure: any): Promise<MedicalReportType> => {
-    const r = await api.addProcedure(reportId, procedure);
+  const addProcedureToReport = async (reportId: string, procedure: ProcedureCode) => {
+    const r = await doctorApi.addProcedure(reportId, procedure);
     await fetchReports();
     return r;
   };
 
-  const updateReportServiceDates = async (reportId: string, from?: string | null, to?: string | null): Promise<MedicalReportType> => {
-    const r = await api.updateServiceDates(reportId, from, to);
+  const updateReportServiceDates = async (reportId: string, from?: string | null, to?: string | null) => {
+    const r = await doctorApi.updateServiceDates(reportId, from, to);
     await fetchReports();
     return r;
   };
 
-  const addReferringProviderToReport = async (reportId: string, name?: string, npi?: string): Promise<MedicalReportType> => {
-    const r = await api.addReferringProvider(reportId, name, npi);
+  const addReferringProviderToReport = async (reportId: string, name?: string, npi?: string) => {
+    const r = await doctorApi.addReferringProvider(reportId, name, npi);
     await fetchReports();
     return r;
   };
 
-  /* ----------------------- EFFECTS ----------------------- */
+  /* ---------------------------------------------------------
+     INITIAL
+  --------------------------------------------------------- */
   useEffect(() => {
     fetchPatients();
     fetchReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const ctx: DoctorContextShape = {
-    patients,
-    reports,
-    loading,
-    moreLoading: loadingState,
-    fetchPatients,
-    getPatient,
-    addPatient,
-    updatePatient,
-    deletePatient,
-    searchPatients,
-    updatePatientStatus,
-    updatePatientNextAppointment,
-    updatePatientLastVisit,
-    updatePatientDiagnosis,
-    updatePatientInsurance,
-
-    fetchReports,
-    fetchReportsByPatient,
-    getReport,
-    createReport,
-    updateReport,
-    deleteReport,
-    searchReports,
-    addReportFiles,
-    deleteReportFile,
-    addProcedureToReport,
-    updateReportServiceDates,
-    addReferringProviderToReport,
-  };
-
-  return <DoctorContext.Provider value={ctx}>{children}</DoctorContext.Provider>;
+  return (
+    <DoctorContext.Provider
+      value={{
+        patients,
+        reports,
+        loading,
+        moreLoading: loadingState,
+        fetchPatients,
+        getPatient,
+        addPatient,
+        updatePatient,
+        deletePatient,
+        searchPatients,
+        updatePatientStatus,
+        updatePatientNextAppointment,
+        updatePatientLastVisit,
+        updatePatientDiagnosis,
+        updatePatientInsurance,
+        fetchReports,
+        fetchReportsByPatient,
+        getReport,
+        createReport,
+        updateReport,
+        deleteReport,
+        searchReports,
+        addReportFiles,
+        deleteReportFile,
+        addProcedureToReport,
+        updateReportServiceDates,
+        addReferringProviderToReport,
+      }}
+    >
+      {children}
+    </DoctorContext.Provider>
+  );
 };

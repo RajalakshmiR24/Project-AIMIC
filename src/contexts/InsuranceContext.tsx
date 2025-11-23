@@ -7,7 +7,8 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import { api, Insurance as InsuranceType } from "../api/api";
+import { insuranceApi } from "../api/insurance.api";
+import { Insurance as InsuranceType } from "../api/types";
 
 type LoadingState = {
   list: boolean;
@@ -21,27 +22,22 @@ export interface InsuranceContextShape {
   moreLoading: LoadingState;
 
   fetchInsurance: () => Promise<void>;
-  getInsuranceByPatient: (patientId: string) => Promise<InsuranceType | null>;
   getInsuranceById: (id: string) => Promise<InsuranceType | null>;
   addInsurance: (payload: Partial<InsuranceType>) => Promise<InsuranceType>;
   updateInsurance: (id: string, payload: Partial<InsuranceType>) => Promise<InsuranceType>;
   deleteInsurance: (id: string) => Promise<void>;
-  searchInsurance: (q: string) => Promise<InsuranceType[]>;
 
-  updateCardImages: (id: string, frontBase64?: string, backBase64?: string) => Promise<InsuranceType>;
-  updateAccidents: (id: string, payload: {
-    employmentRelated?: boolean;
-    autoAccident?: boolean;
-    autoAccidentState?: string;
-    otherAccident?: boolean;
-  }) => Promise<InsuranceType>;
-  updateHospitalization: (id: string, from?: string | null, to?: string | null) => Promise<InsuranceType>;
+  getInsuranceByPatientId: (patientId: string) => Promise<InsuranceType[]>;
+  searchInsurance: (query: string) => Promise<InsuranceType[]>;
+  updateCardImages: (id: string, payload: Partial<InsuranceType>) => Promise<InsuranceType>;
+  updateAccidentInfo: (id: string, payload: Partial<InsuranceType>) => Promise<InsuranceType>;
+  updateHospitalization: (id: string, payload: Partial<InsuranceType>) => Promise<InsuranceType>;
   clearOtherInsurance: (id: string) => Promise<InsuranceType>;
 }
 
 const InsuranceContext = createContext<InsuranceContextShape | undefined>(undefined);
 
-export const useInsurance = (): InsuranceContextShape => {
+export const useInsurance = () => {
   const ctx = useContext(InsuranceContext);
   if (!ctx) throw new Error("useInsurance must be used within InsuranceProvider");
   return ctx;
@@ -55,25 +51,25 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     action: false,
   });
 
-  const loading = useMemo(() => {
-    return loadingState.list || loadingState.single || loadingState.action;
-  }, [loadingState]);
+  const loading = useMemo(
+    () => loadingState.list || loadingState.single || loadingState.action,
+    [loadingState]
+  );
 
-  const fetchInsurance = async (): Promise<void> => {
+  const fetchInsurance = async () => {
     setLoadingState((s) => ({ ...s, list: true }));
     try {
-      const data = await api.getAllInsurance();
+      const data = await insuranceApi.getAllInsurance();
       setRecords(data || []);
     } finally {
       setLoadingState((s) => ({ ...s, list: false }));
     }
   };
 
-  const getInsuranceByPatient = async (patientId: string): Promise<InsuranceType | null> => {
+  const getInsuranceById = async (id: string) => {
     setLoadingState((s) => ({ ...s, single: true }));
     try {
-      const rec = await api.getInsuranceByPatientId(patientId);
-      return rec || null;
+      return await insuranceApi.getInsuranceById(id);
     } catch {
       return null;
     } finally {
@@ -81,22 +77,10 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  const getInsuranceById = async (id: string): Promise<InsuranceType | null> => {
-    setLoadingState((s) => ({ ...s, single: true }));
-    try {
-      const rec = await api.getInsuranceById(id);
-      return rec || null;
-    } catch {
-      return null;
-    } finally {
-      setLoadingState((s) => ({ ...s, single: false }));
-    }
-  };
-
-  const addInsurance = async (payload: Partial<InsuranceType>): Promise<InsuranceType> => {
+  const addInsurance = async (payload: Partial<InsuranceType>) => {
     setLoadingState((s) => ({ ...s, action: true }));
     try {
-      const created = await api.addInsurance(payload as InsuranceType);
+      const created = await insuranceApi.addInsurance(payload as InsuranceType);
       await fetchInsurance();
       return created;
     } finally {
@@ -104,10 +88,10 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  const updateInsurance = async (id: string, payload: Partial<InsuranceType>): Promise<InsuranceType> => {
+  const updateInsurance = async (id: string, payload: Partial<InsuranceType>) => {
     setLoadingState((s) => ({ ...s, action: true }));
     try {
-      const updated = await api.updateInsurance(id, payload);
+      const updated = await insuranceApi.updateInsurance(id, payload);
       await fetchInsurance();
       return updated;
     } finally {
@@ -115,78 +99,38 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     }
   };
 
-  const deleteInsurance = async (id: string): Promise<void> => {
+  const deleteInsurance = async (id: string) => {
     setLoadingState((s) => ({ ...s, action: true }));
     try {
-      await api.deleteInsurance(id);
+      await insuranceApi.deleteInsurance(id);
       await fetchInsurance();
     } finally {
       setLoadingState((s) => ({ ...s, action: false }));
     }
   };
 
-  const searchInsurance = async (q: string): Promise<InsuranceType[]> => {
-    setLoadingState((s) => ({ ...s, list: true }));
-    try {
-      const res = await api.searchInsurance(q);
-      return res || [];
-    } finally {
-      setLoadingState((s) => ({ ...s, list: false }));
-    }
-  };
+  /* ------------ NEW API METHODS ------------ */
 
-  const updateCardImages = async (id: string, frontBase64?: string, backBase64?: string): Promise<InsuranceType> => {
-    setLoadingState((s) => ({ ...s, action: true }));
-    try {
-      const updated = await api.updateInsuranceCardImages(id, frontBase64, backBase64);
-      await fetchInsurance();
-      return updated;
-    } finally {
-      setLoadingState((s) => ({ ...s, action: false }));
-    }
-  };
+  const getInsuranceByPatientId = async (patientId: string) =>
+    insuranceApi.getInsuranceByPatientId(patientId);
 
-  const updateAccidents = async (id: string, payload: {
-    employmentRelated?: boolean;
-    autoAccident?: boolean;
-    autoAccidentState?: string;
-    otherAccident?: boolean;
-  }): Promise<InsuranceType> => {
-    setLoadingState((s) => ({ ...s, action: true }));
-    try {
-      const updated = await api.updateAccidents(id, payload);
-      await fetchInsurance();
-      return updated;
-    } finally {
-      setLoadingState((s) => ({ ...s, action: false }));
-    }
-  };
+  const searchInsurance = async (query: string) =>
+    insuranceApi.searchInsurance(query);
 
-  const updateHospitalization = async (id: string, from?: string | null, to?: string | null): Promise<InsuranceType> => {
-    setLoadingState((s) => ({ ...s, action: true }));
-    try {
-      const updated = await api.updateHospitalization(id, from, to);
-      await fetchInsurance();
-      return updated;
-    } finally {
-      setLoadingState((s) => ({ ...s, action: false }));
-    }
-  };
+  const updateCardImages = async (id: string, payload: Partial<InsuranceType>) =>
+    insuranceApi.updateCardImages(id, payload);
 
-  const clearOtherInsurance = async (id: string): Promise<InsuranceType> => {
-    setLoadingState((s) => ({ ...s, action: true }));
-    try {
-      const updated = await api.clearOtherInsurance(id);
-      await fetchInsurance();
-      return updated;
-    } finally {
-      setLoadingState((s) => ({ ...s, action: false }));
-    }
-  };
+  const updateAccidentInfo = async (id: string, payload: Partial<InsuranceType>) =>
+    insuranceApi.updateAccidentInfo(id, payload);
+
+  const updateHospitalization = async (id: string, payload: Partial<InsuranceType>) =>
+    insuranceApi.updateHospitalization(id, payload);
+
+  const clearOtherInsurance = async (id: string) =>
+    insuranceApi.clearOtherInsurance(id);
 
   useEffect(() => {
     fetchInsurance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ctx: InsuranceContextShape = {
@@ -194,14 +138,15 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     loading,
     moreLoading: loadingState,
     fetchInsurance,
-    getInsuranceByPatient,
     getInsuranceById,
     addInsurance,
     updateInsurance,
     deleteInsurance,
+
+    getInsuranceByPatientId,
     searchInsurance,
     updateCardImages,
-    updateAccidents,
+    updateAccidentInfo,
     updateHospitalization,
     clearOtherInsurance,
   };

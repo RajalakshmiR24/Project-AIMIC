@@ -6,21 +6,31 @@ import {
   Navigate,
   useNavigate,
 } from "react-router-dom";
+
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/auth/LoginPage";
 import RegisterPage from "./components/auth/RegisterPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+
 import EmployeePortal from "./components/portals/EmployeePortal";
 import InsurancePortal from "./components/portals/InsurancePortal";
 import DoctorPortal from "./components/portals/DoctorPortal";
+
 import ChatBot from "./components/ChatBot";
+
 import { decodeRoleFromToken, roleToPath } from "./utils/jwt";
 
-// ✅ import the Doctor context provider
+// Providers
 import { DoctorProvider } from "./contexts/DoctorContext";
+import { ClaimsProvider } from "./contexts/ClaimsContext";
+import { InsuranceProvider } from "./contexts/InsuranceContext";
+import { EmployeeProvider } from "./contexts/EmployeeContext";
 
-/** Sends user to their portal if already authenticated, else shows Landing */
+/* ---------------------------------------------
+   Redirects user to their correct portal
+---------------------------------------------- */
 const HomeRouter: React.FC = () => {
   const { isAuthenticated, user, token, isLoading } = useAuth();
   const navigate = useNavigate();
@@ -46,37 +56,46 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Root route */}
+          {/* Root */}
           <Route path="/" element={<HomeRouter />} />
 
-          {/* Auth screens */}
+          {/* Auth */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
 
-          {/* Portals (role-protected) */}
+          {/* EMPLOYEE PORTAL */}
           <Route
             path="/employee/*"
             element={
               <ProtectedRoute allowedRoles={["employee"]}>
+                <EmployeeProvider>
                 <EmployeePortal />
+                </EmployeeProvider>
               </ProtectedRoute>
             }
           />
+
+          {/* INSURANCE PORTAL */}
           <Route
             path="/insurance/*"
             element={
               <ProtectedRoute allowedRoles={["insurance"]}>
-                <InsurancePortal />
+                <InsuranceProvider>
+                  <InsurancePortal />
+                </InsuranceProvider>
               </ProtectedRoute>
             }
           />
+
+          {/* DOCTOR PORTAL */}
           <Route
             path="/doctor/*"
             element={
               <ProtectedRoute allowedRoles={["doctor"]}>
-                {/* ✅ wrap the doctor area with the provider */}
                 <DoctorProvider>
-                  <DoctorPortal />
+                  <ClaimsProvider>
+                    <DoctorPortal />
+                  </ClaimsProvider>
                 </DoctorProvider>
               </ProtectedRoute>
             }

@@ -5,46 +5,47 @@ import React, {
   useState,
   ReactNode,
 } from "react";
-import { api } from "../api/api";
-import type { LoginCredentials, RegisterData, User } from "../api/api";
+
+import { authApi } from "../api/auth.api";
+import type { LoginCredentials, RegisterData, User, Role } from "../api/types";
 import { decodeRoleFromToken } from "../utils/jwt";
 
-/** Context Type */
-export interface AuthContextType {
+type AuthContextType = {
   user: User | null;
-  role: string | null;
+  role: Role | null;
   token: string | null;
-  login: (credentials: LoginCredentials) => Promise<string>; // returns role
-  register: (data: RegisterData & { confirmPassword?: string }) => Promise<string>;
+  login: (credentials: LoginCredentials) => Promise<Role>;
+  register: (data: RegisterData & { confirmPassword?: string }) => Promise<Role>;
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
-}
+};
 
-/** Context Creation */
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/** Hook */
 export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
   return ctx;
 };
 
-/** Storage Keys */
 const STORAGE_TOKEN = "token";
 const STORAGE_ROLE = "role";
 
-/** Provider */
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /* ----------------------------------------------------
+     RESTORE SESSION ON PAGE RELOAD
+  ---------------------------------------------------- */
   useEffect(() => {
     const savedToken = localStorage.getItem(STORAGE_TOKEN);
-    const savedRole = localStorage.getItem(STORAGE_ROLE);
+    const savedRole = localStorage.getItem(STORAGE_ROLE) as Role | null;
 
     if (savedToken) setToken(savedToken);
     if (savedRole) setRole(savedRole);
@@ -52,95 +53,108 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const restoreUser = async () => {
       if (savedToken) {
         try {
-          const res = await api.me();
+          const res = await authApi.me();
           setUser(res.user);
-        } catch (err) {
-          console.warn("Failed to restore session:", err);
+        } catch {
           logout();
         }
       }
+
       setIsLoading(false);
     };
 
     restoreUser();
   }, []);
 
-  /** Login */
-  const login = async (credentials: LoginCredentials): Promise<string> => {
-    const raw = await api.login(credentials);
-
-    // Extract token and role safely
-    const token =
+  /* ----------------------------------------------------
+     TOKEN + ROLE EXTRACTORS
+  ---------------------------------------------------- */
+  const extractToken = (raw: any): string => {
+    return (
       raw?.token ||
       raw?.accessToken ||
       raw?.jwt ||
       raw?.id_token ||
       raw?.data?.token ||
-      raw?.data?.accessToken;
+      raw?.data?.accessToken
+    );
+  };
+
+  const extractRole = (
+    raw: any,
+    token: string | null,
+    fallback: Role
+  ): Role => {
+    const decoded = decodeRoleFromToken(token) as Role | null;
+    const apiRole = raw?.user?.role as Role | undefined;
+
+    if (apiRole === "employee" || apiRole === "doctor" || apiRole === "insurance")
+      return apiRole;
+
+    if (decoded === "employee" || decoded === "doctor" || decoded === "insurance")
+      return decoded;
+
+    return fallback;
+  };
+
+  /* ----------------------------------------------------
+     LOGIN
+  ---------------------------------------------------- */
+  const login = async (credentials: LoginCredentials): Promise<Role> => {
+    const raw = await authApi.login(credentials);
+    const token = extractToken(raw);
     if (!token) throw new Error("No token in login response");
 
-    const decodedRole =
-      raw?.user?.role || decodeRoleFromToken(token) || "employee";
+    const role = extractRole(raw, token, "employee");
 
-    // Persist token and role
     localStorage.setItem(STORAGE_TOKEN, token);
-    localStorage.setItem(STORAGE_ROLE, decodedRole);
+    localStorage.setItem(STORAGE_ROLE, role);
 
-    // Update state
     setToken(token);
-    setRole(decodedRole);
-    setUser(raw?.user || { role: decodedRole } as User);
+    setRole(role);
+    setUser(raw?.user || ({ role } as User));
 
-    // If backend supports /me, fetch full user details
     try {
-      const res = await api.me();
-      if (res?.user) setUser(res.user);
-    } catch (e) {
-      console.warn("Unable to fetch user details:", e);
-    }
+      const res = await authApi.me();
+      if (res.user) setUser(res.user);
+    } catch {}
 
-    return decodedRole;
+    return role;
   };
 
-  /** Register */
+  /* ----------------------------------------------------
+     REGISTER
+  ---------------------------------------------------- */
   const register = async (
     data: RegisterData & { confirmPassword?: string }
-  ): Promise<string> => {
+  ): Promise<Role> => {
     const { confirmPassword, ...payload } = data;
-    const raw = await api.register(payload);
 
-    const token =
-      raw?.token ||
-      raw?.accessToken ||
-      raw?.jwt ||
-      raw?.id_token ||
-      raw?.data?.token ||
-      raw?.data?.accessToken;
+    const raw = await authApi.register(payload);
+    const token = extractToken(raw);
+
     if (!token) throw new Error("No token in register response");
 
-    const decodedRole =
-      raw?.user?.role || decodeRoleFromToken(token) || payload.role;
+    const role = extractRole(raw, token, payload.role);
 
-    // Persist
     localStorage.setItem(STORAGE_TOKEN, token);
-    localStorage.setItem(STORAGE_ROLE, decodedRole);
+    localStorage.setItem(STORAGE_ROLE, role);
 
     setToken(token);
-    setRole(decodedRole);
-    setUser(raw?.user || { role: decodedRole } as User);
+    setRole(role);
+    setUser(raw?.user || ({ role } as User));
 
-    // Optional fetch user details
     try {
-      const res = await api.me();
-      if (res?.user) setUser(res.user);
-    } catch (e) {
-      console.warn("Unable to fetch user details after registration:", e);
-    }
+      const res = await authApi.me();
+      if (res.user) setUser(res.user);
+    } catch {}
 
-    return decodedRole;
+    return role;
   };
 
-  /** Logout */
+  /* ----------------------------------------------------
+     LOGOUT
+  ---------------------------------------------------- */
   const logout = () => {
     localStorage.removeItem(STORAGE_TOKEN);
     localStorage.removeItem(STORAGE_ROLE);
@@ -149,7 +163,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
-  /** Context Value */
+  /* ----------------------------------------------------
+     CONTEXT VALUE
+  ---------------------------------------------------- */
   const value: AuthContextType = {
     user,
     role,
