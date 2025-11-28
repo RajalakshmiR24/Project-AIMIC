@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Shield, Eye, EyeOff, Mail, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import type { LoginCredentials } from "../../api/api";
-import {  roleToPath } from "../../utils/jwt";
+import type { LoginCredentials } from "../../api/types";
+import { roleToPath } from "../../utils/jwt";
 
 const LoginPage = () => {
   const [formData, setFormData] = useState<LoginCredentials>({ email: "", password: "" });
@@ -15,28 +15,26 @@ const LoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsLoading(true);
-  setError("");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
 
-  try {
-    const role = await login(formData); // your AuthContext now returns role string
+    try {
+      const role = await login(formData);
 
-    const roleRoot = roleToPath(role); // "/doctor" | "/employee" | "/insurance"
-    const fromPath = (location.state as any)?.from?.pathname as string | undefined;
+      const roleRoot = roleToPath(role);
+      const fromPath = (location.state as any)?.from?.pathname as string | undefined;
+      const isFromAllowed = !!fromPath && fromPath.startsWith(roleRoot);
+      const target = isFromAllowed ? fromPath! : roleRoot;
 
-    // only use `from` if it’s inside the same portal root for this role
-    const isFromAllowed = !!fromPath && fromPath.startsWith(roleRoot);
-    const target = isFromAllowed ? fromPath! : roleRoot;
-
-    navigate(target, { replace: true });
-  } catch (err: any) {
-    setError(err.message || "Login failed. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+      navigate(target, { replace: true });
+    } catch (err: any) {
+      setError(err.message || "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleDemoLogin = async (role: "employee" | "doctor" | "insurance") => {
     const demo: Record<typeof role, LoginCredentials> = {
@@ -44,7 +42,6 @@ const handleSubmit = async (e: React.FormEvent) => {
       doctor: { email: "doctor@mediclaim.com", password: "password123" },
       insurance: { email: "insurance@mediclaim.com", password: "password123" },
     };
-    // Auto-fill + submit for convenience
     setFormData(demo[role]);
     setTimeout(() => document.getElementById("login-submit")?.dispatchEvent(new Event("click", { bubbles: true })), 0);
   };
@@ -81,6 +78,7 @@ const handleSubmit = async (e: React.FormEvent) => {
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border p-8">
+
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center space-x-3">
               <AlertCircle className="w-5 h-5 text-red-600" />
@@ -88,7 +86,16 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 🚫 Disable Chrome autofill/popup */}
+          <form onSubmit={handleSubmit} autoComplete="off" className="space-y-6">
+
+            {/* Fake hidden password field to block Chrome warnings */}
+            <input
+              type="password"
+              style={{ display: "none" }}
+              autoComplete="new-password"
+            />
+
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
               <div className="relative">
@@ -98,6 +105,7 @@ const handleSubmit = async (e: React.FormEvent) => {
                   name="email"
                   type="email"
                   required
+                  autoComplete="new-email"
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your email"
                   value={formData.email}
@@ -110,16 +118,23 @@ const handleSubmit = async (e: React.FormEvent) => {
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">Password</label>
               <div className="relative">
                 <Lock className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+
+                {/* REAL password field — autofill suppressed */}
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  autoComplete="new-password"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck="false"
                   className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Enter your password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
@@ -173,6 +188,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <span className="bg-purple-600 text-white px-2 py-1 rounded text-xs font-bold">ISO 27001</span>
           </div>
         </div>
+
       </div>
     </div>
   );
