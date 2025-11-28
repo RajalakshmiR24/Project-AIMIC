@@ -69,7 +69,9 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["employee"]}>
                 <EmployeeProvider>
+                  <ClaimsProvider>
                 <EmployeePortal />
+                </ClaimsProvider>
                 </EmployeeProvider>
               </ProtectedRoute>
             }

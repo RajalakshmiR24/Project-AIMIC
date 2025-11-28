@@ -2,7 +2,7 @@ import { useDoctor } from "../../../contexts/DoctorContext";
 import { useClaims } from "../../../contexts/ClaimsContext";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, FileText, Activity } from "lucide-react";
+import { Users, FileText, Activity, IndianRupee } from "lucide-react";
 
 const DoctorDashboard = () => {
   const { patients, reports, loading, fetchPatients, fetchReports } = useDoctor();
@@ -11,6 +11,14 @@ const DoctorDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const totals = useMemo(() => {
+    const approved = claims
+      .filter((c: any) => c.claimStatus === "Approved")
+      .reduce((sum: number, c: any) => sum + (c.approvedAmount || 0), 0);
+
+    const pendingRejected = claims
+      .filter((c: any) => c.claimStatus === "Pending" || c.claimStatus === "Rejected")
+      .reduce((sum: number, c: any) => sum + (c.billedAmount || 0), 0);
+
     return {
       totalPatients: patients.length,
       reportsSubmitted: reports.length,
@@ -19,9 +27,10 @@ const DoctorDashboard = () => {
       ).length,
       totalClaims: claims.length,
       activeClaims: claims.filter((c: any) => c.claimStatus !== "Approved").length,
+      approvedAmount: approved,
+      pendingRejectedAmount: pendingRejected,
     };
   }, [patients, reports, claims]);
-
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -41,23 +50,22 @@ const DoctorDashboard = () => {
           {refreshing ? "..." : "Refresh"}
         </button>
       </div>
-      <div className="grid md:grid-cols-3 gap-6">
 
-        {/* Patients */}
+      <div className="grid md:grid-cols-5 gap-6">
+
+        {/* Total Patients */}
         <div className="bg-white p-6 rounded-xl shadow-sm border">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-600 text-sm">Total Patients</p>
-              <p className="text-3xl font-bold">
-                {loading ? "—" : totals.totalPatients}
-              </p>
+              <p className="text-3xl font-bold">{loading ? "—" : totals.totalPatients}</p>
               <p className="text-xs text-green-600">Updated automatically</p>
             </div>
             <Users className="w-10 h-10 text-teal-600" />
           </div>
         </div>
 
-        {/* Reports */}
+        {/* Reports Submitted */}
         <div className="bg-white p-6 rounded-xl shadow-sm border">
           <div className="flex justify-between items-center">
             <div>
@@ -71,7 +79,7 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* Claims */}
+        {/* Total Claims */}
         <div className="bg-white p-6 rounded-xl shadow-sm border">
           <div className="flex justify-between items-center">
             <div>
@@ -79,21 +87,45 @@ const DoctorDashboard = () => {
               <p className="text-3xl font-bold text-orange-600">
                 {claimsLoading ? "—" : totals.totalClaims}
               </p>
-              <p className="text-xs text-orange-600">
-                {totals.activeClaims} active
-              </p>
+              <p className="text-xs text-orange-600">{totals.activeClaims} active</p>
             </div>
             <Activity className="w-10 h-10 text-orange-600" />
           </div>
         </div>
 
+        {/* Approved Amount */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-600 text-sm">Approved Amount</p>
+              <p className="text-3xl font-bold text-green-600">
+                ₹{totals.approvedAmount.toLocaleString()}
+              </p>
+            </div>
+            <IndianRupee className="w-10 h-10 text-green-600" />
+          </div>
+        </div>
+
+        {/* Pending + Rejected Amount */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-600 text-sm">Pending & Rejected Amount</p>
+              <p className="text-3xl font-bold text-red-600">
+                ₹{totals.pendingRejectedAmount.toLocaleString()}
+              </p>
+            </div>
+            <IndianRupee className="w-10 h-10 text-red-600" />
+          </div>
+        </div>
 
       </div>
 
-
-
+      {/* tables section remains unchanged */}
+      {/* --------------------- TABLES --------------------- */}
       <div className="grid lg:grid-cols-3 gap-10">
-        {/* ---------------- PATIENTS TABLE ---------------- */}
+
+        {/* Recent Patients */}
         <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Patients</h2>
@@ -123,13 +155,11 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* ---------------- REPORTS TABLE ---------------- */}
+        {/* Recent Reports */}
         <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Reports</h2>
-            <div className="space-x-4">
-              <Link to="/doctor/reports" className="text-sm text-teal-600">View All</Link>
-            </div>
+            <Link to="/doctor/reports" className="text-sm text-teal-600">View All</Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -157,13 +187,11 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* ---------------- CLAIMS TABLE ---------------- */}
+        {/* Recent Claims */}
         <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Claims</h2>
-            <div className="space-x-4">
-              <Link to="/doctor/claims" className="text-sm text-orange-600">View All</Link>
-            </div>
+            <Link to="/doctor/claims" className="text-sm text-orange-600">View All</Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -184,14 +212,15 @@ const DoctorDashboard = () => {
                       <td className="p-3">{c.patientId?.fullName}</td>
                       <td className="p-3">
                         <span
-                          className={`px-3 py-1 text-xs rounded-full ${c.claimStatus === "Approved"
-                            ? "bg-green-100 text-green-700"
-                            : c.claimStatus === "Submitted"
+                          className={`px-3 py-1 text-xs rounded-full ${
+                            c.claimStatus === "Approved"
+                              ? "bg-green-100 text-green-700"
+                              : c.claimStatus === "Submitted"
                               ? "bg-blue-100 text-blue-700"
                               : c.claimStatus === "Rejected"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-yellow-100 text-yellow-700"
-                            }`}
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
                         >
                           {c.claimStatus}
                         </span>
@@ -203,8 +232,8 @@ const DoctorDashboard = () => {
             </table>
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
   );
 };

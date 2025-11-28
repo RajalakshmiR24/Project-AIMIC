@@ -2,10 +2,10 @@
 import React, {
   createContext,
   useContext,
-  useEffect,
-  useMemo,
   useState,
   ReactNode,
+  useCallback,
+  useMemo,
 } from "react";
 import { insuranceApi } from "../api/insurance.api";
 import { Insurance as InsuranceType } from "../api/types";
@@ -56,7 +56,7 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     [loadingState]
   );
 
-  const fetchInsurance = async () => {
+  const fetchInsurance = useCallback(async () => {
     setLoadingState((s) => ({ ...s, list: true }));
     try {
       const data = await insuranceApi.getAllInsurance();
@@ -64,9 +64,9 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoadingState((s) => ({ ...s, list: false }));
     }
-  };
+  }, []);
 
-  const getInsuranceById = async (id: string) => {
+  const getInsuranceById = useCallback(async (id: string) => {
     setLoadingState((s) => ({ ...s, single: true }));
     try {
       return await insuranceApi.getInsuranceById(id);
@@ -75,9 +75,9 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoadingState((s) => ({ ...s, single: false }));
     }
-  };
+  }, []);
 
-  const addInsurance = async (payload: Partial<InsuranceType>) => {
+  const addInsurance = useCallback(async (payload: Partial<InsuranceType>) => {
     setLoadingState((s) => ({ ...s, action: true }));
     try {
       const created = await insuranceApi.addInsurance(payload as InsuranceType);
@@ -86,70 +86,108 @@ export const InsuranceProvider: React.FC<{ children: ReactNode }> = ({ children 
     } finally {
       setLoadingState((s) => ({ ...s, action: false }));
     }
-  };
+  }, [fetchInsurance]);
 
-  const updateInsurance = async (id: string, payload: Partial<InsuranceType>) => {
-    setLoadingState((s) => ({ ...s, action: true }));
-    try {
-      const updated = await insuranceApi.updateInsurance(id, payload);
-      await fetchInsurance();
-      return updated;
-    } finally {
-      setLoadingState((s) => ({ ...s, action: false }));
-    }
-  };
+  const updateInsurance = useCallback(
+    async (id: string, payload: Partial<InsuranceType>) => {
+      setLoadingState((s) => ({ ...s, action: true }));
+      try {
+        const updated = await insuranceApi.updateInsurance(id, payload);
+        await fetchInsurance();
+        return updated;
+      } finally {
+        setLoadingState((s) => ({ ...s, action: false }));
+      }
+    },
+    [fetchInsurance]
+  );
 
-  const deleteInsurance = async (id: string) => {
-    setLoadingState((s) => ({ ...s, action: true }));
-    try {
-      await insuranceApi.deleteInsurance(id);
-      await fetchInsurance();
-    } finally {
-      setLoadingState((s) => ({ ...s, action: false }));
-    }
-  };
+  const deleteInsurance = useCallback(
+    async (id: string) => {
+      setLoadingState((s) => ({ ...s, action: true }));
+      try {
+        await insuranceApi.deleteInsurance(id);
+        await fetchInsurance();
+      } finally {
+        setLoadingState((s) => ({ ...s, action: false }));
+      }
+    },
+    [fetchInsurance]
+  );
 
-  /* ------------ NEW API METHODS ------------ */
+  const getInsuranceByPatientId = useCallback(
+    (patientId: string) => insuranceApi.getInsuranceByPatientId(patientId),
+    []
+  );
 
-  const getInsuranceByPatientId = async (patientId: string) =>
-    insuranceApi.getInsuranceByPatientId(patientId);
+  const searchInsurance = useCallback(
+    (query: string) => insuranceApi.searchInsurance(query),
+    []
+  );
 
-  const searchInsurance = async (query: string) =>
-    insuranceApi.searchInsurance(query);
+  const updateCardImages = useCallback(
+    (id: string, payload: Partial<InsuranceType>) =>
+      insuranceApi.updateCardImages(id, payload),
+    []
+  );
 
-  const updateCardImages = async (id: string, payload: Partial<InsuranceType>) =>
-    insuranceApi.updateCardImages(id, payload);
+  const updateAccidentInfo = useCallback(
+    (id: string, payload: Partial<InsuranceType>) =>
+      insuranceApi.updateAccidentInfo(id, payload),
+    []
+  );
 
-  const updateAccidentInfo = async (id: string, payload: Partial<InsuranceType>) =>
-    insuranceApi.updateAccidentInfo(id, payload);
+  const updateHospitalization = useCallback(
+    (id: string, payload: Partial<InsuranceType>) =>
+      insuranceApi.updateHospitalization(id, payload),
+    []
+  );
 
-  const updateHospitalization = async (id: string, payload: Partial<InsuranceType>) =>
-    insuranceApi.updateHospitalization(id, payload);
+  const clearOtherInsurance = useCallback(
+    (id: string) => insuranceApi.clearOtherInsurance(id),
+    []
+  );
 
-  const clearOtherInsurance = async (id: string) =>
-    insuranceApi.clearOtherInsurance(id);
+  const ctxValue = useMemo(
+    () => ({
+      records,
+      loading,
+      moreLoading: loadingState,
 
-  useEffect(() => {
-    fetchInsurance();
-  }, []);
+      fetchInsurance,
+      getInsuranceById,
+      addInsurance,
+      updateInsurance,
+      deleteInsurance,
 
-  const ctx: InsuranceContextShape = {
-    records,
-    loading,
-    moreLoading: loadingState,
-    fetchInsurance,
-    getInsuranceById,
-    addInsurance,
-    updateInsurance,
-    deleteInsurance,
+      getInsuranceByPatientId,
+      searchInsurance,
+      updateCardImages,
+      updateAccidentInfo,
+      updateHospitalization,
+      clearOtherInsurance,
+    }),
+    [
+      records,
+      loading,
+      loadingState,
+      fetchInsurance,
+      getInsuranceById,
+      addInsurance,
+      updateInsurance,
+      deleteInsurance,
+      getInsuranceByPatientId,
+      searchInsurance,
+      updateCardImages,
+      updateAccidentInfo,
+      updateHospitalization,
+      clearOtherInsurance,
+    ]
+  );
 
-    getInsuranceByPatientId,
-    searchInsurance,
-    updateCardImages,
-    updateAccidentInfo,
-    updateHospitalization,
-    clearOtherInsurance,
-  };
-
-  return <InsuranceContext.Provider value={ctx}>{children}</InsuranceContext.Provider>;
+  return (
+    <InsuranceContext.Provider value={ctxValue}>
+      {children}
+    </InsuranceContext.Provider>
+  );
 };

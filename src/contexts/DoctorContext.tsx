@@ -35,11 +35,7 @@ export interface DoctorContextShape {
   deletePatient: (id: string) => Promise<void>;
   searchPatients: (q: string) => Promise<PatientType[]>;
 
-  updatePatientStatus: (id: string, status: PatientType["status"]) => Promise<PatientType>;
-  updatePatientNextAppointment: (id: string, nextAppointment: string | null) => Promise<PatientType>;
-  updatePatientLastVisit: (id: string, lastVisit: string | null) => Promise<PatientType>;
-  updatePatientDiagnosis: (id: string, codes: string[]) => Promise<PatientType>;
-  updatePatientInsurance: (id: string, payload: Partial<PatientType>) => Promise<PatientType>;
+updatePatientStatus: (id: string, payload: any) => Promise<PatientType>;
 
   fetchReports: () => Promise<void>;
   fetchReportsByPatient: (patientId: string) => Promise<MedicalReportType[]>;
@@ -120,39 +116,8 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     return await doctorApi.searchPatients(q);
   };
 
-  const updatePatientStatus = async (id: string, status: PatientType["status"]) => {
-    const updated = await doctorApi.updatePatientStatus(id, status);
-    await fetchPatients();
-    return updated;
-  };
 
-  const updatePatientNextAppointment = async (id: string, nextAppointment: string | null) => {
-    const updated = await doctorApi.updatePatientNextAppointment(id, nextAppointment);
-    await fetchPatients();
-    return updated;
-  };
 
-  const updatePatientLastVisit = async (id: string, lastVisit: string | null) => {
-    const updated = await doctorApi.updatePatientLastVisit(id, lastVisit);
-    await fetchPatients();
-    return updated;
-  };
-
-  const updatePatientDiagnosis = async (id: string, codes: string[]) => {
-    const updated = await doctorApi.updatePatientDiagnosis(id, codes);
-    await fetchPatients();
-    return updated;
-  };
-
-  const updatePatientInsurance = async (id: string, payload: Partial<PatientType>) => {
-    const updated = await doctorApi.updatePatientInsurance(id, payload);
-    await fetchPatients();
-    return updated;
-  };
-
-  /* ---------------------------------------------------------
-     REPORT OPERATIONS
-  --------------------------------------------------------- */
   const fetchReports = async () => {
     setLoadingState(s => ({ ...s, reports: true }));
     try {
@@ -226,6 +191,12 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
     await fetchReports();
     return r;
   };
+const updatePatientStatus = async (id: string, payload: any) => {
+  const updated = await doctorApi.updatePatientStatus(id, payload);
+  await fetchPatients();
+  return updated;
+};
+
 
   /* ---------------------------------------------------------
      INITIAL
@@ -249,10 +220,7 @@ export const DoctorProvider: React.FC<{ children: ReactNode }> = ({ children }) 
         deletePatient,
         searchPatients,
         updatePatientStatus,
-        updatePatientNextAppointment,
-        updatePatientLastVisit,
-        updatePatientDiagnosis,
-        updatePatientInsurance,
+   
         fetchReports,
         fetchReportsByPatient,
         getReport,

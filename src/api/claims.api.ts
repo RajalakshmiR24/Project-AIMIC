@@ -7,6 +7,18 @@ export interface ClaimAttachment {
   fileBase64: string;
 }
 
+export interface ClaimPayload {
+  patientId: string;
+  insuranceId?: string;
+  medicalReportId?: string;
+
+  billedAmount: number;
+  approvedAmount?: number;
+
+  notes?: string;
+  attachments?: ClaimAttachment[];
+}
+
 export interface Claim {
   _id?: string;
   patientId: any;
@@ -30,7 +42,7 @@ export interface Claim {
 }
 
 export const claimsApi = {
-  async createClaim(data: Claim): Promise<Claim> {
+  async createClaim(data: ClaimPayload): Promise<Claim> {
     const res = await axiosInstance.post("/api/claims", data);
     return res.data.data;
   },

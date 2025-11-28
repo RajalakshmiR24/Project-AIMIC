@@ -1,6 +1,6 @@
 // src/contexts/ClaimsContext.tsx
 import { createContext, useContext, useEffect, useState } from "react";
-import { claimsApi, Claim } from "../api/claims.api";
+import { claimsApi, Claim, ClaimPayload } from "../api/claims.api";
 
 interface ClaimsContextType {
   claims: Claim[];
@@ -9,7 +9,7 @@ interface ClaimsContextType {
   fetchClaims: () => Promise<void>;
   fetchClaimById: (id: string) => Promise<Claim | null>;
 
-  createClaim: (data: Claim) => Promise<Claim>;
+  createClaim: (data: ClaimPayload) => Promise<Claim>;
   updateClaim: (id: string, data: Partial<Claim>) => Promise<Claim>;
   deleteClaim: (id: string) => Promise<void>;
 }
@@ -38,7 +38,7 @@ export const ClaimsProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const createClaim = async (data: Claim) => {
+  const createClaim = async (data: ClaimPayload) => {
     const created = await claimsApi.createClaim(data);
     setClaims((prev) => [created, ...prev]);
     return created;

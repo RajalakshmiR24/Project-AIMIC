@@ -31,6 +31,9 @@ const AllReportsPage: React.FC = () => {
   /* ---------------------------------------------------------
      VIEW MODAL
   --------------------------------------------------------- */
+  /* ---------------------------------------------------------
+     VIEW MODAL (UPDATED — FIXED CREATEDBY ERRORS)
+  --------------------------------------------------------- */
   const openViewReportModal = async (id: string) => {
     const report = await getReport(id);
     if (!report) return;
@@ -44,41 +47,46 @@ const AllReportsPage: React.FC = () => {
       title: `<strong>Report Details</strong>`,
       width: 900,
       html: `
-        <div style="text-align:left;font-size:14px;line-height:1.5;">
-          <h3 style="font-weight:600;margin:10px 0 6px;">Patient Information</h3>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-            <p><b>Name:</b> ${patient?.fullName || "-"}</p>
-            <p><b>Email:</b> ${patient?.email || "-"}</p>
-            <p><b>Phone:</b> ${patient?.phone || "-"}</p>
-            <p><b>Insurance:</b> ${patient?.insuranceId || "-"}</p>
-            <p><b>Condition:</b> ${patient?.primaryCondition || "-"}</p>
-            <p><b>Status:</b> ${patient?.status || "-"}</p>
-            <p><b>Last Visit:</b> ${formatDate(patient?.lastVisit)}</p>
-            <p><b>Next Appointment:</b> ${formatDate(patient?.nextAppointment)}</p>
-          </div>
+      <div style="text-align:left;font-size:14px;line-height:1.5;">
+        <h3 style="font-weight:600;margin:10px 0 6px;">Patient Information</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <p><b>Name:</b> ${patient?.fullName || "-"}</p>
+          <p><b>Email:</b> ${patient?.email || "-"}</p>
+          <p><b>Phone:</b> ${patient?.phone || "-"}</p>
+          <p><b>Patient ID:</b> ${patient?._id || "-"}</p>
+        </div>
 
-          <hr style="margin:12px 0" />
+        <hr style="margin:12px 0" />
 
-          <h3 style="font-weight:600;margin:10px 0 6px;">Report Details</h3>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-            <p><b>Type:</b> ${report.reportType}</p>
-            <p><b>Primary Dx:</b> ${report.primaryDiagnosis}</p>
-            <p><b>Secondary Dx:</b> ${(report.secondaryDiagnosis || []).join(", ")}</p>
-            <p><b>Treatment:</b> ${report.treatmentProvided || "-"}</p>
-            <p><b>Medications:</b> ${report.medicationsPrescribed || "-"}</p>
-            <p><b>Lab Results:</b> ${report.labResults || "-"}</p>
-            <p><b>Recommendations:</b> ${report.recommendations || "-"}</p>
-            <p><b>Follow Up:</b> ${formatDate(report.followUpDate)}</p>
-            <p><b>Service From:</b> ${formatDate(report.serviceDateFrom)}</p>
-            <p><b>To:</b> ${formatDate(report.serviceDateTo)}</p>
-          </div>
+        <h3 style="font-weight:600;margin:10px 0 6px;">Report Details</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <p><b>Type:</b> ${report.reportType || "-"}</p>
+          <p><b>Primary Dx:</b> ${report.primaryDiagnosis || "-"}</p>
+          <p><b>Secondary Dx:</b> ${(report.secondaryDiagnosis || []).join(", ") || "-"}</p>
+          <p><b>Treatment:</b> ${report.treatmentProvided || "-"}</p>
+          <p><b>Medications:</b> ${report.medicationsPrescribed || "-"}</p>
+          <p><b>Lab Results:</b> ${report.labResults || "-"}</p>
+          <p><b>Recommendations:</b> ${report.recommendations || "-"}</p>
+          <p><b>Follow Up:</b> ${formatDate(report.followUpDate)}</p>
+          <p><b>Service From:</b> ${formatDate(report.serviceDateFrom)}</p>
+          <p><b>To:</b> ${formatDate(report.serviceDateTo)}</p>
+          <p><b>Status:</b> ${report.status || "-"}</p>
+          <p><b>Created At:</b> ${formatDate(report.createdAt)}</p>
 
-          <hr style="margin:12px 0" />
+          ${(() => {
+          const c = report.createdBy;
+          if (typeof c === "object" && c !== null) {
+            return `<p><b>Created By:</b> ${c.name || "-"} (${c.email || "-"})</p>`;
+          }
+          return `<p><b>Created By:</b> -</p>`;
+        })()}
+        </div>
 
-          <h3 style="font-weight:600;margin:10px 0 6px;">Procedures</h3>
-          ${
-            report.procedureCodes?.length
-              ? `
+        <hr style="margin:12px 0" />
+
+        <h3 style="font-weight:600;margin:10px 0 6px;">Procedures</h3>
+        ${report.procedureCodes?.length
+          ? `
               <table style="width:100%;border-collapse:collapse;font-size:13px;">
                 <thead>
                   <tr>
@@ -91,72 +99,66 @@ const AllReportsPage: React.FC = () => {
                 </thead>
                 <tbody>
                   ${report.procedureCodes
-                    .map(
-                      (pc: any) => `
+            .map(
+              (pc: any) => `
                         <tr>
-                          <td style="padding:6px;">${pc.cpt}</td>
+                          <td style="padding:6px;">${pc.cpt || "-"}</td>
                           <td style="padding:6px;">${pc.modifier || "-"}</td>
-                          <td style="padding:6px;">${(pc.diagnosisPointers || []).join(", ")}</td>
-                          <td style="padding:6px;text-align:right;">${pc.charges}</td>
-                          <td style="padding:6px;text-align:right;">${pc.units}</td>
+                          <td style="padding:6px;">${(pc.diagnosisPointers || []).join(", ") || "-"}</td>
+                          <td style="padding:6px;text-align:right;">${pc.charges ?? "-"}</td>
+                          <td style="padding:6px;text-align:right;">${pc.units ?? "-"}</td>
                         </tr>`
-                    )
-                    .join("")}
+            )
+            .join("")}
                 </tbody>
               </table>`
-              : `<p style="color:gray">No procedures added</p>`
-          }
-        </div>
-      `,
+          : `<p style="color:gray">No procedures added</p>`
+        }
+      </div>
+    `,
       confirmButtonText: "Close",
       showCloseButton: true,
     });
   };
 
-  /* ---------------------------------------------------------
-     ADD/EDIT MODAL
-  --------------------------------------------------------- */
-const openReportFormModal = (existing?: any) => {
-  const patientOptions = patients
-    .map(
-      (p: any) =>
-        `<option value="${p._id}">${p.fullName} — ${p.email}</option>`
-    )
-    .join("");
 
-  Swal.fire({
-    title: existing ? "Edit Medical Report" : "Add Medical Report",
-    width: 900,
-    html: `
+  /* ---------------------------------------------------------
+     VIEW + ADD/EDIT MODAL — FULL UPDATED WITH createdBy FIX
+  --------------------------------------------------------- */
+
+  const openReportFormModal = (existing?: any) => {
+    const patientOptions = patients
+      .map((p: any) => `<option value="${p._id}">${p.fullName} — ${p.email}</option>`)
+      .join("");
+
+    Swal.fire({
+      title: existing ? "Edit Medical Report" : "Add Medical Report",
+      width: 950,
+      html: `
       <style>
-        .grid-2col {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 14px;
-          margin-top: 10px;
-        }
+        .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
         .full { grid-column: span 2; }
-        .label {
-          font-weight: 600;
-          margin-bottom: 4px;
-          display: block;
-        }
+        .label { font-weight: 600; margin-bottom: 4px; display: block; }
         .input, .textarea, .select {
-          width: 100%;
-          padding: 10px;
-          border-radius: 8px;
-          border: 1px solid #d1d5db;
-          font-size: 14px;
+          width: 100%; padding: 10px; border-radius: 8px;
+          border: 1px solid #d1d5db; font-size: 14px;
         }
-        .textarea {
-          resize: vertical;
+        .textarea { resize: vertical; }
+        .pc-row {
+          display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto;
+          gap: 10px; margin-bottom: 10px; align-items: center;
         }
+        .pc-container {
+          margin-top: 10px; padding: 10px;
+          border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa;
+        }
+        .btn-sm { padding: 6px 10px; background:#2563eb; color:white;
+          border-radius:6px; font-size:13px; cursor:pointer; }
+        .btn-del { background:#ef4444!important; }
       </style>
 
       <div style="text-align:left;font-size:14px;max-height:70vh;overflow-y:auto;padding-right:10px;">
-
         <div class="grid-2col">
-          
           <div>
             <label class="label">Select Patient *</label>
             <select id="r1" class="select">
@@ -180,32 +182,32 @@ const openReportFormModal = (existing?: any) => {
 
           <div>
             <label class="label">Primary Diagnosis *</label>
-            <textarea id="r3" rows="3" class="textarea" placeholder="Enter primary diagnosis"></textarea>
+            <textarea id="r3" rows="3" class="textarea"></textarea>
           </div>
 
           <div>
             <label class="label">Secondary Diagnosis</label>
-            <textarea id="r4" rows="3" class="textarea" placeholder="Comma separated"></textarea>
+            <textarea id="r4" rows="3" class="textarea"></textarea>
           </div>
 
           <div class="full">
             <label class="label">Treatment Provided *</label>
-            <textarea id="r5" rows="4" class="textarea" placeholder="Describe treatment"></textarea>
+            <textarea id="r5" rows="3" class="textarea"></textarea>
           </div>
 
           <div>
             <label class="label">Medications Prescribed</label>
-            <textarea id="r6" rows="3" class="textarea" placeholder="List medications"></textarea>
+            <textarea id="r6" rows="2" class="textarea"></textarea>
           </div>
 
           <div>
             <label class="label">Lab Results</label>
-            <textarea id="r7" rows="3" class="textarea" placeholder="Enter lab results"></textarea>
+            <textarea id="r7" rows="2" class="textarea"></textarea>
           </div>
 
           <div>
             <label class="label">Recommendations</label>
-            <textarea id="r8" rows="3" class="textarea" placeholder="Recommendations"></textarea>
+            <textarea id="r8" rows="2" class="textarea"></textarea>
           </div>
 
           <div>
@@ -225,90 +227,190 @@ const openReportFormModal = (existing?: any) => {
 
           <div>
             <label class="label">Referring Provider Name</label>
-            <input id="r12" class="input" placeholder="Enter provider name">
+            <input id="r12" class="input">
           </div>
 
           <div>
             <label class="label">Referring Provider NPI</label>
-            <input id="r13" class="input" placeholder="NPI number">
+            <input id="r13" class="input">
           </div>
 
+          <div>
+            <label class="label">Status</label>
+            <select id="r14" class="select">
+              <option value="Submitted">Submitted</option>
+              <option value="Draft">Draft</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="label">Created By (auto)</label>
+            <input id="r15" class="input" disabled>
+          </div>
         </div>
 
+        <!-- PROCEDURE CODES -->
+        <label class="label" style="margin-top:14px;">Procedure Codes</label>
+        <div id="pcContainer" class="pc-container"></div>
+        <button id="addPC" class="btn-sm" style="margin-top:8px;">+ Add CPT Row</button>
       </div>
     `,
-    didOpen: () => {
-      if (existing) {
-        (document.getElementById("r1") as any).value =
-          existing.patientId?._id || existing.patientId;
+didOpen: () => {
+  const pcContainer = document.getElementById("pcContainer") as HTMLElement;
+  const addPCBtn = document.getElementById("addPC") as HTMLButtonElement;
+  const createdByInput = document.getElementById("r15") as HTMLInputElement;
 
-        (document.getElementById("r2") as any).value = existing.reportType || "";
-        (document.getElementById("r3") as any).value = existing.primaryDiagnosis || "";
-        (document.getElementById("r4") as any).value = (existing.secondaryDiagnosis || []).join(", ");
-        (document.getElementById("r5") as any).value = existing.treatmentProvided || "";
-        (document.getElementById("r6") as any).value = existing.medicationsPrescribed || "";
-        (document.getElementById("r7") as any).value = existing.labResults || "";
-        (document.getElementById("r8") as any).value = existing.recommendations || "";
+  const addRow = (pc?: any) => {
+    const div = document.createElement("div");
+    div.className = "pc-row";
+    div.innerHTML = `
+      <input class="input pc-cpt" placeholder="CPT" value="${pc?.cpt || ""}">
+      <input class="input pc-mod" placeholder="Modifier" value="${pc?.modifier || ""}">
+      <input class="input pc-dx" placeholder="Dx pointers (comma)" value="${pc?.diagnosisPointers?.join(", ") || ""}">
+      <input class="input pc-charges" type="number" placeholder="Charges" value="${pc?.charges ?? ""}">
+      <input class="input pc-units" type="number" placeholder="Units" value="${pc?.units ?? ""}">
+      <button class="btn-sm btn-del pc-del">X</button>
+    `;
+    pcContainer.appendChild(div);
 
-        (document.getElementById("r9") as any).value =
-          existing.followUpDate ? existing.followUpDate.split("T")[0] : "";
+    const delBtn = div.querySelector(".pc-del") as HTMLButtonElement;
+    delBtn.addEventListener("click", () => div.remove());
+  };
 
-        (document.getElementById("r10") as any).value =
-          existing.serviceDateFrom ? existing.serviceDateFrom.split("T")[0] : "";
-
-        (document.getElementById("r11") as any).value =
-          existing.serviceDateTo ? existing.serviceDateTo.split("T")[0] : "";
-
-        (document.getElementById("r12") as any).value = existing.referringProviderName || "";
-        (document.getElementById("r13") as any).value = existing.referringProviderNPI || "";
-      }
-    },
-    showCancelButton: true,
-    confirmButtonText: existing ? "Update" : "Create",
-    preConfirm: () => {
-      const patientId = (document.getElementById("r1") as any).value;
-      const reportType = (document.getElementById("r2") as any).value;
-      const primaryDiagnosis = (document.getElementById("r3") as any).value;
-
-      if (!patientId) return Swal.showValidationMessage("Patient is required");
-      if (!reportType) return Swal.showValidationMessage("Report Type is required");
-      if (!primaryDiagnosis) return Swal.showValidationMessage("Primary Diagnosis is required");
-
-      return {
-        patientId,
-        reportType,
-        primaryDiagnosis,
-        secondaryDiagnosis: (document.getElementById("r4") as any).value
-          .split(",")
-          .map((s: string) => s.trim())
-          .filter(Boolean),
-        treatmentProvided: (document.getElementById("r5") as any).value,
-        medicationsPrescribed: (document.getElementById("r6") as any).value,
-        labResults: (document.getElementById("r7") as any).value,
-        recommendations: (document.getElementById("r8") as any).value,
-        followUpDate: (document.getElementById("r9") as any).value || null,
-        serviceDateFrom: (document.getElementById("r10") as any).value || null,
-        serviceDateTo: (document.getElementById("r11") as any).value || null,
-        referringProviderName: (document.getElementById("r12") as any).value,
-        referringProviderNPI: (document.getElementById("r13") as any).value,
-        status: "Submitted",
-      };
-    },
-  }).then(async (res) => {
-    if (!res.isConfirmed) return;
-
-    if (existing) {
-      await updateReport(existing._id, res.value);
-      await fetchReports();
-      Swal.fire("Updated", "Report updated successfully", "success");
-    } else {
-      await createReport(res.value);
-      await fetchReports();
-      Swal.fire("Created", "Report created successfully", "success");
-    }
+  addPCBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    addRow();
   });
-};
 
+  // Populate values when editing existing report
+  if (existing) {
+    (document.getElementById("r1") as HTMLSelectElement).value =
+      existing.patientId?._id || existing.patientId;
+
+    (document.getElementById("r2") as HTMLSelectElement).value =
+      existing.reportType || "";
+
+    (document.getElementById("r3") as HTMLTextAreaElement).value =
+      existing.primaryDiagnosis || "";
+
+    (document.getElementById("r4") as HTMLTextAreaElement).value =
+      (existing.secondaryDiagnosis || []).join(", ");
+
+    (document.getElementById("r5") as HTMLTextAreaElement).value =
+      existing.treatmentProvided || "";
+
+    (document.getElementById("r6") as HTMLTextAreaElement).value =
+      existing.medicationsPrescribed || "";
+
+    (document.getElementById("r7") as HTMLTextAreaElement).value =
+      existing.labResults || "";
+
+    (document.getElementById("r8") as HTMLTextAreaElement).value =
+      existing.recommendations || "";
+
+    (document.getElementById("r9") as HTMLInputElement).value =
+      existing.followUpDate ? existing.followUpDate.split("T")[0] : "";
+
+    (document.getElementById("r10") as HTMLInputElement).value =
+      existing.serviceDateFrom ? existing.serviceDateFrom.split("T")[0] : "";
+
+    (document.getElementById("r11") as HTMLInputElement).value =
+      existing.serviceDateTo ? existing.serviceDateTo.split("T")[0] : "";
+
+    (document.getElementById("r12") as HTMLInputElement).value =
+      existing.referringProviderName || "";
+
+    (document.getElementById("r13") as HTMLInputElement).value =
+      existing.referringProviderNPI || "";
+
+    (document.getElementById("r14") as HTMLSelectElement).value =
+      existing.status || "Submitted";
+
+    // FIX: Show readable name but store ObjectId
+    if (existing.createdBy && typeof existing.createdBy === "object") {
+      createdByInput.value = `${existing.createdBy.name} (${existing.createdBy.email})`;
+      createdByInput.dataset.userid = existing.createdBy._id;
+    }
+
+    if (existing.procedureCodes?.length) {
+      existing.procedureCodes.forEach((pc: any) => addRow(pc));
+    }
+  }
+},
+      showCancelButton: true,
+      confirmButtonText: existing ? "Update" : "Create",
+      preConfirm: () => {
+        const patientId = (document.getElementById("r1") as HTMLSelectElement).value;
+        const reportType = (document.getElementById("r2") as HTMLSelectElement).value;
+        const primaryDiagnosis = (document.getElementById("r3") as HTMLTextAreaElement).value;
+
+        const secondaryDiagnosis = (document.getElementById("r4") as HTMLTextAreaElement).value
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean);
+
+        const treatmentProvided = (document.getElementById("r5") as HTMLTextAreaElement).value;
+        const medicationsPrescribed = (document.getElementById("r6") as HTMLTextAreaElement).value;
+        const labResults = (document.getElementById("r7") as HTMLTextAreaElement).value;
+        const recommendations = (document.getElementById("r8") as HTMLTextAreaElement).value;
+
+        const followUpDate = (document.getElementById("r9") as HTMLInputElement).value || null;
+        const serviceDateFrom = (document.getElementById("r10") as HTMLInputElement).value || null;
+        const serviceDateTo = (document.getElementById("r11") as HTMLInputElement).value || null;
+
+        const referringProviderName = (document.getElementById("r12") as HTMLInputElement).value;
+        const referringProviderNPI = (document.getElementById("r13") as HTMLInputElement).value;
+
+        const status = (document.getElementById("r14") as HTMLSelectElement).value;
+
+        const createdByInput = document.getElementById("r15") as HTMLInputElement;
+        const createdBy = createdByInput.dataset.userid || undefined;
+
+        const procedureCodes = Array.from(document.querySelectorAll(".pc-row")).map((row: any) => ({
+          cpt: (row.querySelector(".pc-cpt") as HTMLInputElement).value,
+          modifier: (row.querySelector(".pc-mod") as HTMLInputElement).value,
+          diagnosisPointers: (row.querySelector(".pc-dx") as HTMLInputElement).value
+            .split(",")
+            .map((s: string) => s.trim())
+            .filter(Boolean),
+          charges: Number((row.querySelector(".pc-charges") as HTMLInputElement).value) || 0,
+          units: Number((row.querySelector(".pc-units") as HTMLInputElement).value) || 0,
+        }));
+
+        return {
+          patientId,
+          reportType,
+          primaryDiagnosis,
+          secondaryDiagnosis,
+          treatmentProvided,
+          medicationsPrescribed,
+          labResults,
+          recommendations,
+          followUpDate,
+          serviceDateFrom,
+          serviceDateTo,
+          referringProviderName,
+          referringProviderNPI,
+          status,
+          createdBy,
+          procedureCodes,
+        };
+      },
+
+    }).then(async (res) => {
+      if (!res.isConfirmed) return;
+
+      if (existing) {
+        await updateReport(existing._id, res.value);
+        await fetchReports();
+        Swal.fire("Updated", "Report updated successfully", "success");
+      } else {
+        await createReport(res.value);
+        await fetchReports();
+        Swal.fire("Created", "Report created successfully", "success");
+      }
+    });
+  };
 
 
   /* ---------------------------------------------------------
@@ -344,6 +446,7 @@ const openReportFormModal = (existing?: any) => {
       setLoading(false);
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -396,11 +499,11 @@ const openReportFormModal = (existing?: any) => {
       </div>
 
       {/* TABLE */}
-<div className="w-full overflow-x-auto rounded-xl border bg-white shadow-sm">
+      <div className="w-full overflow-x-auto rounded-xl border bg-white shadow-sm">
         {loading ? (
           <p className="p-5 text-center">Loading...</p>
         ) : (
-  <table className="min-w-max w-full text-sm">
+          <table className="min-w-max w-full text-sm">
             <thead className="bg-gray-100 hidden md:table-header-group">
               <tr>
                 <th className="p-3 text-left">Patient</th>
@@ -423,12 +526,8 @@ const openReportFormModal = (existing?: any) => {
                 return (
                   <tr key={r._id} className="border-t hover:bg-gray-50">
                     <td className="p-3">
-                      <div className="font-medium">
-                        {patient?.fullName || "Unknown"}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        {patient?.email}
-                      </div>
+                      <div className="font-medium">{patient?.fullName || "Unknown"}</div>
+                      <div className="text-xs text-gray-500">{patient?.email}</div>
                     </td>
 
                     <td className="p-3">{r.reportType}</td>

@@ -1,172 +1,231 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useInsurance } from "../../../contexts/InsuranceContext";
-import { ShieldCheckIcon, UsersIcon, BuildingLibraryIcon, MagnifyingGlassIcon } from "@heroicons/react/24/solid";
+import { claimsApi } from "../../../api/claims.api";
+import {
+  ShieldCheckIcon,
+  UsersIcon,
+  BuildingLibraryIcon,
+  ClipboardDocumentListIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/react/24/solid";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2";
 import { Insurance, Patient } from "../../../api/types";
 
-/* ----------- SAFE HELPERS ------------ */
-const getPatientName = (p: string | Patient) =>
-typeof p === "string" ? "Unknown" : p?.fullName ?? "Unknown";
+/* ---------------- HELPERS ---------------- */
 
-const formatDate = (d?: string | null) => (d ? new Date(d).toLocaleDateString() : "—");
+const extractPatients = (ref?: Patient[] | any) => {
+  if (!ref) return [];
+  if (Array.isArray(ref)) return ref;
+  return [];
+};
 
-/* -------------------------------------- */
+const getPatientNames = (ref?: any) =>
+  extractPatients(ref)
+    .map((p) => p?.fullName ?? "Unknown")
+    .join(", ") || "Unknown";
+
+const getPatientIds = (ref?: any) =>
+  Array.from(new Set(extractPatients(ref).map((p) => p?._id))).filter(Boolean);
+
+const formatDate = (d?: string | null) =>
+  d ? new Date(d).toLocaleDateString() : "—";
+
+/* ----------------------------------------- */
 
 const InsuranceDashboard: React.FC = () => {
-const navigate = useNavigate();
-const {
-records,
-loading,
-fetchInsurance,
-searchInsurance,
-getInsuranceByPatientId,
-} = useInsurance();
+  const navigate = useNavigate();
+  const { records = [], loading, fetchInsurance } = useInsurance();
 
-const [search, setSearch] = useState("");
-const [filteredRecords, setFilteredRecords] = useState<Insurance[]>([]);
+  const [search, setSearch] = useState("");
+  const [filteredRecords, setFilteredRecords] = useState<Insurance[]>([]);
+  const [pendingClaims, setPendingClaims] = useState<number>(0);
 
-/* LOAD INITIAL */
-useEffect(() => {
-fetchInsurance();
-}, []);
+  useEffect(() => {
+    fetchInsurance();
+    loadPendingClaims();
+  }, [fetchInsurance]);
 
-/* SEARCH & FILTER */
-useEffect(() => {
-if (!search) {
-setFilteredRecords(records);
-} else {
-const s = search.toLowerCase();
-const filtered = records.filter(
-(r) =>
-r.insuranceProvider?.toLowerCase().includes(s) ||
-r.policyNumber?.toLowerCase().includes(s) ||
-getPatientName(r.patientId).toLowerCase().includes(s)
-);
-setFilteredRecords(filtered);
-}
-}, [records, search]);
+  const loadPendingClaims = async () => {
+    try {
+      const res = await claimsApi.getAllClaims();
+      setPendingClaims(res.length);
+    } catch {
+      setPendingClaims(0);
+    }
+  };
 
-/* STATS */
-const stats = useMemo(() => {
-return {
-totalRecords: records.length,
-totalProviders: new Set(records.map((r) => r.insuranceProvider)).size,
-totalPatients: new Set(
-records.map((r) => (typeof r.patientId === "string" ? r.patientId : r.patientId?._id))
-).size,
-};
-}, [records]);
+  useEffect(() => {
+    if (!search.trim()) {
+      setFilteredRecords(records);
+      return;
+    }
 
-/* LATEST RECORDS (limit 5) */
-const latestRecords = useMemo(() => {
-return [...filteredRecords]
-.sort((a, b) => new Date(b.createdAt ?? "").getTime() - new Date(a.createdAt ?? "").getTime())
-.slice(0, 5);
-}, [filteredRecords]);
+    const s = search.toLowerCase().trim();
 
-return ( <div className="space-y-8">
+    const filtered = records.filter((r) => {
+      const provider = r.insuranceProvider ?? "";
+      const insuranceId = (r as any).insuranceId ?? "";
+      const patientNames = getPatientNames(r.patientId);
 
-```
-  {/* TITLE & SEARCH */}
-  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-    <h2 className="text-3xl font-bold text-gray-800">Insurance Dashboard</h2>
+      return (
+        provider.toLowerCase().includes(s) ||
+        insuranceId.toLowerCase().includes(s) ||
+        patientNames.toLowerCase().includes(s)
+      );
+    });
 
-    <div className="flex items-center gap-2 w-full md:w-1/3">
-      <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute ml-3" />
-      <input
-        type="text"
-        placeholder="Search by provider, policy, or patient..."
-        className="w-full pl-10 pr-4 py-2 border rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-    </div>
-  </div>
+    setFilteredRecords(filtered);
+  }, [search, records]);
 
-  {/* STATS CARDS */}
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg border flex items-center justify-between">
-      <div>
-        <p className="text-gray-500">Total Insurance Records</p>
-        <p className="text-3xl font-bold text-gray-800">{loading ? "—" : stats.totalRecords}</p>
+  const stats = useMemo(() => {
+    const patients = new Set<string>();
+    records.forEach((r) =>
+      getPatientIds(r.patientId).forEach((id) => patients.add(id))
+    );
+
+    const providers = new Set(
+      records.map((r) => r.insuranceProvider?.trim()).filter(Boolean)
+    );
+
+    return {
+      totalRecords: records.length,
+      totalProviders: providers.size,
+      totalPatients: patients.size,
+    };
+  }, [records]);
+
+  const latestRecords = useMemo(
+    () =>
+      [...filteredRecords]
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt ?? "").getTime() -
+            new Date(a.createdAt ?? "").getTime()
+        )
+        .slice(0, 5),
+    [filteredRecords]
+  );
+
+  return (
+    <div className="space-y-10">
+
+      {/* HEADER + SEARCH */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
+          Insurance Dashboard
+        </h2>
+
+        <div className="relative w-full md:w-1/3">
+          <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Search provider, insurance ID, or patient…"
+            className="w-full pl-10 pr-4 py-2 bg-white/70 backdrop-blur-md border rounded-xl shadow focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
-      <ShieldCheckIcon className="w-12 h-12 text-green-500" />
-    </div>
 
-    <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg border flex items-center justify-between">
-      <div>
-        <p className="text-gray-500">Insurance Providers</p>
-        <p className="text-3xl font-bold text-blue-600">{loading ? "—" : stats.totalProviders}</p>
+      {/* STAT CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        {/* Total Records */}
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer">
+          <div className="flex justify-between items-center">
+            <p className="opacity-90">Total Records</p>
+            <ShieldCheckIcon className="w-12 h-12 opacity-90" />
+          </div>
+          <p className="text-4xl font-bold mt-3">{loading ? "—" : stats.totalRecords}</p>
+        </div>
+
+        {/* Providers */}
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer">
+          <div className="flex justify-between items-center">
+            <p className="opacity-90">Providers</p>
+            <BuildingLibraryIcon className="w-12 h-12 opacity-90" />
+          </div>
+          <p className="text-4xl font-bold mt-3">{loading ? "—" : stats.totalProviders}</p>
+        </div>
+
+        {/* Patients Covered */}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer">
+          <div className="flex justify-between items-center">
+            <p className="opacity-90">Patients Covered</p>
+            <UsersIcon className="w-12 h-12 opacity-90" />
+          </div>
+          <p className="text-4xl font-bold mt-3">{loading ? "—" : stats.totalPatients}</p>
+        </div>
+
+        {/* Pending Claims */}
+        <div
+          onClick={() => navigate("/claims")}
+          className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer"
+        >
+          <div className="flex justify-between items-center">
+            <p className="opacity-90">Pending Claims</p>
+            <ClipboardDocumentListIcon className="w-12 h-12 opacity-90" />
+          </div>
+          <p className="text-4xl font-bold mt-3">{pendingClaims}</p>
+        </div>
+
       </div>
-      <BuildingLibraryIcon className="w-12 h-12 text-blue-600" />
-    </div>
 
-    <div className="bg-white p-6 rounded-xl shadow hover:shadow-lg border flex items-center justify-between">
-      <div>
-        <p className="text-gray-500">Patients Covered</p>
-        <p className="text-3xl font-bold text-purple-600">{loading ? "—" : stats.totalPatients}</p>
-      </div>
-      <UsersIcon className="w-12 h-12 text-purple-600" />
-    </div>
-  </div>
+      {/* RECENT RECORDS */}
+      <div className="bg-white rounded-2xl shadow-xl border">
+        <div className="flex justify-between items-center p-6 border-b">
+          <h3 className="text-xl font-semibold text-gray-800">
+            Recent Insurance Records
+          </h3>
+          <button
+            onClick={() => navigate("/insurance/records")}
+            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+          >
+            View All
+          </button>
+        </div>
 
-  {/* LATEST INSURANCE RECORDS */}
-  <div className="bg-white rounded-xl shadow border">
-    <div className="flex justify-between items-center p-6 border-b">
-      <h3 className="text-lg font-semibold text-gray-700">Recent Insurance Records</h3>
-      <button
-        onClick={() => navigate("/insurance/records")}
-        className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-      >
-        View All
-      </button>
-    </div>
-
-    <div className="overflow-x-auto">
-      <table className="min-w-[700px] w-full text-sm">
-        <thead className="bg-gray-50 border-b">
-          <tr>
-            <th className="p-3 text-left">Provider</th>
-            <th className="p-3 text-left">Policy #</th>
-            <th className="p-3 text-left">Insured</th>
-            <th className="p-3 text-left">Patient</th>
-            <th className="p-3 text-left">Created At</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {loading ? (
-            <tr>
-              <td colSpan={5} className="p-4 text-center text-gray-500">Loading…</td>
-            </tr>
-          ) : latestRecords.length === 0 ? (
-            <tr>
-              <td colSpan={5} className="p-4 text-center text-gray-400">No recent records</td>
-            </tr>
-          ) : (
-            latestRecords.map((ins) => (
-              <tr key={ins._id} className="border-b hover:bg-gray-50">
-                <td className="p-3">{ins.insuranceProvider}</td>
-                <td className="p-3">{ins.policyNumber ?? "—"}</td>
-                <td className="p-3">{ins.insuredName ?? "—"}</td>
-                <td className="p-3">{getPatientName(ins.patientId)}</td>
-                <td className="p-3">{formatDate(ins.createdAt)}</td>
+        <div className="overflow-x-auto">
+          <table className="min-w-[750px] w-full text-sm">
+            <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+              <tr>
+                <th className="p-3 text-left">Provider</th>
+                <th className="p-3 text-left">Insurance ID</th>
+                <th className="p-3 text-left">Patients</th>
+                <th className="p-3 text-left">Created</th>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={4} className="p-4 text-center">Loading…</td></tr>
+              ) : latestRecords.length === 0 ? (
+                <tr><td colSpan={4} className="p-4 text-center text-gray-400">No records</td></tr>
+              ) : (
+                latestRecords.map((ins) => (
+                  <tr
+                    key={ins._id}
+                    onClick={() => navigate(`/insurance/record/${ins._id}`)}
+                    className="border-b hover:bg-blue-50 transition cursor-pointer"
+                  >
+                    <td className="p-3">{ins.insuranceProvider}</td>
+                    <td className="p-3">{(ins as any).insuranceId}</td>
+                    <td className="p-3">{getPatientNames(ins.patientId)}</td>
+                    <td className="p-3">{formatDate(ins.createdAt)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="p-4 text-sm text-gray-500 text-center">
+          Showing latest 5 records
+        </div>
+      </div>
+      
     </div>
-
-    <div className="p-4 text-sm text-gray-500 text-center">
-      Showing latest 5 records
-    </div>
-  </div>
-</div>
-
-
-);
+  );
 };
 
 export default InsuranceDashboard;

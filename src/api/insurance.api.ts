@@ -1,4 +1,3 @@
-// src/api/insurance.api.ts
 import { axiosInstance } from "./axiosInstance";
 import { Insurance } from "./types";
 import { Claim } from "./claims.api";

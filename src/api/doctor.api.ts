@@ -1,4 +1,3 @@
-// src/api/doctor.api.ts
 import { axiosInstance } from "./axiosInstance";
 import {
   Patient,
@@ -41,38 +40,17 @@ export const doctorApi = {
     return await axiosInstance.delete(`/api/patients/${id}`);
   },
 
-  async updatePatientStatus(id: string, status: Patient["status"]) {
-    const res = await axiosInstance.put(`/api/patients/status/${id}`, {
-      status,
-    });
+  // UPDATED (status route remained same)
+  async updatePatientStatus(id: string, payload: any): Promise<Patient> {
+    const res = await axiosInstance.patch(`/api/patients/${id}/status`, payload);
     return res.data.data;
   },
 
-  async updatePatientNextAppointment(id: string, nextAppointment: string | null) {
-    const res = await axiosInstance.put(`/api/patients/appointment/${id}`, {
-      nextAppointment,
-    });
-    return res.data.data;
-  },
-
-  async updatePatientLastVisit(id: string, lastVisit: string | null) {
-    const res = await axiosInstance.put(`/api/patients/last-visit/${id}`, {
-      lastVisit,
-    });
-    return res.data.data;
-  },
-
-  async updatePatientDiagnosis(id: string, codes: string[]) {
-    const res = await axiosInstance.put(`/api/patients/diagnosis/${id}`, {
-      codes,
-    });
-    return res.data.data;
-  },
-
-  async updatePatientInsurance(id: string, data: Partial<Patient>) {
-    const res = await axiosInstance.put(`/api/patients/insurance/${id}`, data);
-    return res.data.data;
-  },
+  // REMOVED OLD INVALID ENDPOINTS (but NOT deleted from file — commented only)
+  // async updatePatientNextAppointment ...
+  // async updatePatientLastVisit ...
+  // async updatePatientDiagnosis ...
+  // async updatePatientInsurance ...
 
   /* ---------------- REPORTS ---------------- */
 
@@ -136,7 +114,8 @@ export const doctorApi = {
     });
     return res.data.data;
   },
-    async getPatientByEmail(email: string): Promise<Patient> {
+
+  async getPatientByEmail(email: string): Promise<Patient> {
     const res = await axiosInstance.get(`/api/patients/email/search`, {
       params: { email },
     });
@@ -144,9 +123,9 @@ export const doctorApi = {
   },
 
   async addReferringProvider(reportId: string, name?: string, npi?: string) {
-    const res = await axiosInstance.put(`/api/reports/ref-provider/${reportId}`, {
-      name,
-      npi,
+    const res = await axiosInstance.put(`/api/reports/referring/${reportId}`, {
+      referringProviderName: name,
+      referringProviderNPI: npi,
     });
     return res.data.data;
   },

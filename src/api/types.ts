@@ -40,79 +40,167 @@ export interface Claim {
   updatedAt?: string;
 }
 
+export interface ReadyForClaimItem {
+  patient: {
+    _id: string;
+    fullName: string;
+    age: number;
+    sex: string;
+    birthDate: string;
+    phone: string;
+    email: string;
+    addressLine1: string;
+    addressLine2: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    insuranceId: string;
+    primaryCondition: string;
+    status: string;
+    lastVisit: string | null;
+    nextAppointment: string | null;
+    visibleToEmployee: boolean;
+    visibleToInsurance: boolean;
+    patientWorkflowStatus: string;
+    createdBy: {
+      _id: string;
+      name: string;
+      email: string;
+      role: string;
+    };
+    createdAt: string;
+    updatedAt: string;
+    __v: number;
+  };
+
+  insurance: {
+    _id: string;
+    patientId: string[];
+    insuranceProvider: string;
+    planName: string;
+    policyNumber: string;
+    groupNumber: string;
+    insuredName: string;
+    insuredIdNumber: string;
+    insuredDateOfBirth: string;
+    insuredSex: string;
+    insuredRelationship: string;
+    insuredAddressLine1: string;
+    insuredAddressLine2: string;
+    insuredCity: string;
+    insuredState: string;
+    insuredZipCode: string;
+    insuredPhone: string;
+    otherInsuranceExists: boolean;
+    otherInsuranceName: string;
+    otherInsurancePolicyNumber: string;
+    otherInsuranceGroupNumber: string;
+    employmentRelated: boolean;
+    autoAccident: boolean;
+    autoAccidentState: string;
+    otherAccident: boolean;
+    priorAuthorizationNumber: string;
+    outsideLab: boolean;
+    outsideLabCharges: number;
+    hospitalizationFrom: string | null;
+    hospitalizationTo: string | null;
+    insuranceCardFrontBase64: string;
+    insuranceCardBackBase64: string;
+    createdAt: string;
+    updatedAt: string;
+    insuranceId: string;
+    __v: number;
+  };
+
+  latestReport: {
+    _id: string;
+    patientId: string;
+    reportType: string;
+    primaryDiagnosis: string;
+    secondaryDiagnosis: string[];
+    treatmentProvided: string;
+    medicationsPrescribed: string;
+    labResults: string;
+    recommendations: string;
+    followUpDate: string;
+    referringProviderName: string;
+    referringProviderNPI: string;
+    serviceDateFrom: string;
+    serviceDateTo: string;
+    procedureCodes: {
+      cpt: string;
+      modifier: string;
+      diagnosisPointers: string[];
+      charges: number;
+      units: number;
+      _id: string;
+    }[];
+    createdBy: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+    __v: number;
+  } | null;
+
+  createdBy: {
+    _id?: string;
+    name?: string;
+    email?: string;
+    role?: string;
+  };
+}
+
+
 /* ------------------ PATIENT TYPES ------------------ */
 export interface Patient {
   _id?: string;
+
   fullName: string;
   age?: number;
-  dateOfBirth?: string | null;
+  sex?: "M" | "F" | "U";
   birthDate?: string | null;
-  sex?: string | undefined;
+
   phone?: string;
   email?: string;
+
   addressLine1?: string;
   addressLine2?: string;
   city?: string;
   state?: string;
   zipCode?: string;
-  country?: string;
-  maritalStatus?: string;
-  insuredIdNumber?: string;
-  patientRelationship?: "Self" | "Spouse" | "Child" | "Other";
-  insuredName?: string;
-  insuredAddressLine1?: string;
-  insuredAddressLine2?: string;
-  insuredCity?: string;
-  insuredState?: string;
-  insuredZipCode?: string;
-  insuredPhone?: string;
-  insuranceId?: string;
-  insuredOtherInsurance?: string;
-  insurancePlanName?: string;
-  insurancePolicyNumber?: string;
-  insuranceGroupNumber?: string;
-  patientSignatureOnFile?: boolean;
-  insuredSignatureOnFile?: boolean;
-  conditionEmployment?: boolean;
-  conditionAutoAccident?: boolean;
-  conditionAutoAccidentState?: string;
-  conditionOtherAccident?: boolean;
-  otherInsuredName?: string;
-  otherInsuredPolicyNumber?: string;
-  otherInsuredGroupNumber?: string;
-  otherInsuredDateOfBirth?: string | null;
-  otherInsuredSex?: "M" | "F" | "U";
-  otherInsuredEmployer?: string;
-  otherInsuredInsurancePlanName?: string;
-  dateCurrentIllness?: string | null;
-  otherDate?: string | null;
-  referringPhysician?: string;
-  referringPhysicianNPI?: string;
-  additionalClaimInfo?: string;
-  diagnosisCodes?: string[];
-  hospitalizationFrom?: string | null;
-  hospitalizationTo?: string | null;
-  resubmissionCode?: string;
-  originalRefNumber?: string;
-  priorAuthorizationNumber?: string;
-  federalTaxId?: string;
-  patientAccountNumber?: string;
-  acceptAssignment?: boolean;
-  totalCharge?: number;
-  amountPaid?: number;
-  billingProviderInfo?: string;
-  billingProviderNPI?: string;
+
+  insuranceId?: string; // from Insurance auto-generation
+
   primaryCondition?: string;
-  secondaryCondition?: string;
-  tertiaryCondition?: string;
+
+  status?: "Active Treatment" | "Follow-up Required" | "Discharged";
+
   lastVisit?: string | null;
   nextAppointment?: string | null;
-  status?: "Active Treatment" | "Follow-up Required" | "Discharged" | string;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
+
+  visibleToEmployee?: boolean;
+  visibleToInsurance?: boolean;
+
+  patientWorkflowStatus?:
+    | "Created"
+    | "ReportSubmitted"
+    | "ReadyForEmployee"
+    | "ReadyForClaim"
+    | "ClaimSubmitted"
+    | "UnderInsuranceReview"
+    | "Approved"
+    | "Rejected";
+
+  createdBy?: {
+    _id?: string;
+    name?: string;
+    role?: string;
+  } | string;
+
   createdAt?: string;
   updatedAt?: string;
 }
+
 
 /* ------------------ MEDICAL REPORT TYPES ------------------ */
 export interface ReportFile {
@@ -157,37 +245,48 @@ export interface MedicalReport {
 /* ------------------ INSURANCE TYPES ------------------ */
 export interface Insurance {
   _id?: string;
-  patientId: string | Patient;
+
+  // MUST be array — backend expects patientId: Types.ObjectId[]
+  patientId: string[];
+
   insuranceProvider: string;
   planName?: string;
   policyNumber?: string;
   groupNumber?: string;
+
   insuredName?: string;
   insuredIdNumber?: string;
   insuredDateOfBirth?: string | null;
   insuredSex?: "M" | "F" | "U";
   insuredRelationship?: "Self" | "Spouse" | "Child" | "Other";
+
   insuredAddressLine1?: string;
   insuredAddressLine2?: string;
   insuredCity?: string;
   insuredState?: string;
   insuredZipCode?: string;
   insuredPhone?: string;
+
   otherInsuranceExists?: boolean;
   otherInsuranceName?: string;
   otherInsurancePolicyNumber?: string;
   otherInsuranceGroupNumber?: string;
+
   employmentRelated?: boolean;
   autoAccident?: boolean;
   autoAccidentState?: string;
   otherAccident?: boolean;
+
   priorAuthorizationNumber?: string;
   outsideLab?: boolean;
   outsideLabCharges?: number;
+
   hospitalizationFrom?: string | null;
   hospitalizationTo?: string | null;
+
   insuranceCardFrontBase64?: string;
   insuranceCardBackBase64?: string;
+
   createdAt?: string;
   updatedAt?: string;
 }

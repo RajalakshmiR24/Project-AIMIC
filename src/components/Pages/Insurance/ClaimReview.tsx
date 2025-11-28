@@ -207,7 +207,7 @@ const load = async () => {
         )}
 
         {/* ATTACHMENTS TAB */}
-        {activeTab === "Attachments" && (
+        {/* {activeTab === "Attachments" && (
           <div className="p-4 bg-gray-100 rounded space-y-2 text-sm">
             {claim.attachments?.length ? (
               claim.attachments.map((a, i) => (
@@ -226,7 +226,7 @@ const load = async () => {
               <div>No attachments found.</div>
             )}
           </div>
-        )}
+        )} */}
 
       
       </div>

@@ -1,60 +1,34 @@
 import { axiosInstance } from "./axiosInstance";
-import { Claim, Patient } from "./types";
+import { Claim, Patient, ReadyForClaimItem } from "./types";
 
 export const employeeApi = {
-  /* -----------------------------------------------------
-     GET EMPLOYEE DETAILS (includes managedClaims)
-  ----------------------------------------------------- */
-  async getEmployee(id: string) {
-    const res = await axiosInstance.get(`/api/employees/${id}`);
+  async getPatientsReadyForClaim(): Promise<ReadyForClaimItem[]> {
+    const res = await axiosInstance.get("/api/employee/patients/ready-for-claim");
     return res.data.data;
   },
 
-  /* -----------------------------------------------------
-     GET MY CLAIMS (from user’s employee profile)
-  ----------------------------------------------------- */
-  async getMyClaims(employeeId: string): Promise<Claim[]> {
-    const res = await axiosInstance.get(`/api/employees/${employeeId}`);
-    return res.data.data?.managedClaims || [];
-  },
-
-  /* -----------------------------------------------------
-     ASSIGN A CLAIM TO EMPLOYEE
-  ----------------------------------------------------- */
-  async addManagedClaim(employeeId: string, claimId: string) {
-    const res = await axiosInstance.post(
-      `/api/employees/${employeeId}/manage-claim`,
-      { claimId }
-    );
+  async createClaim(data: any): Promise<Claim> {
+    const res = await axiosInstance.post("/api/employee/claims/create", data);
     return res.data.data;
   },
 
-  /* -----------------------------------------------------
-     SUBMIT CLAIM (unchanged if backend kept it)
-  ----------------------------------------------------- */
-  async submitClaim(data: any): Promise<Claim> {
-    const res = await axiosInstance.post(`/api/claims/submit`, data);
+  async getAllClaims(): Promise<Claim[]> {
+    const res = await axiosInstance.get("/api/employee/claims/all");
     return res.data.data;
   },
 
-  /* -----------------------------------------------------
-     DOCUMENT UPLOAD
-  ----------------------------------------------------- */
-  async uploadDocument(employeeId: string, payload: any) {
-    const res = await axiosInstance.post(
-      `/api/employees/${employeeId}/add-document`,
-      payload
-    );
+  async reviewClaim(id: string, payload: any): Promise<Claim> {
+    const res = await axiosInstance.post(`/api/employee/claims/${id}/review`, payload);
     return res.data.data;
   },
 
-  /* -----------------------------------------------------
-     GET PATIENT BY EMAIL
-  ----------------------------------------------------- */
-  async getPatientByEmail(email: string): Promise<Patient> {
-    const res = await axiosInstance.get(`/api/patients/email/search`, {
-      params: { email },
-    });
+  async getPatientByEmail(email: string): Promise<Patient | null> {
+    const res = await axiosInstance.get(`/api/employee/patient/email/${email}`);
     return res.data.data;
   },
+
+  async updatePatientStatus(id: string, payload: any): Promise<Patient> {
+    const res = await axiosInstance.patch(`/api/patients/${id}/status`, payload);
+    return res.data.data;
+  }
 };
