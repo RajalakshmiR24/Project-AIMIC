@@ -14,7 +14,7 @@ import {
   Globe,
   Star,
   ChevronRight,
-  Play
+  
 } from 'lucide-react';
 import AICapabilitiesSection from './ai/AICapabilitiesSection';
 
@@ -58,11 +58,11 @@ const LandingPage = () => {
       features: ["Submit Claims", "Track Status", "Upload Documents", "AI Assistance"]
     },
     {
-      title: "Doctor Portal",
+      title: "Hospital Portal",
       subtitle: "For Medical Reports",
       description: "Upload medical reports, provide treatment details, and manage patient records efficiently",
       icon: <Stethoscope className="w-16 h-16 text-white" />,
-      link: "/doctor",
+      link: "/hospital",
       gradient: "from-teal-500 to-cyan-600",
       hoverGradient: "hover:from-teal-600 hover:to-cyan-700",
       features: ["Submit Reports", "Patient Records", "Treatment Details", "Quick Upload"]
@@ -432,7 +432,7 @@ const LandingPage = () => {
               <h4 className="text-lg font-bold mb-6 text-white">Portals</h4>
               <ul className="space-y-3">
                 <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2"><ChevronRight className="w-4 h-4" /><span>Employee Portal</span></Link></li>
-                <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2"><ChevronRight className="w-4 h-4" /><span>Doctor Portal</span></Link></li>
+                <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2"><ChevronRight className="w-4 h-4" /><span>Hospital Portal</span></Link></li>
                 <li><Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2"><ChevronRight className="w-4 h-4" /><span>Insurance Portal</span></Link></li>
               </ul>
             </div>

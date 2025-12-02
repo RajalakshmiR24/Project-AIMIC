@@ -1,14 +1,14 @@
+// src/api/hospital.api.ts
 import { axiosInstance } from "./axiosInstance";
 import {
   Patient,
   MedicalReport,
-  ReportFile,
   ProcedureCode,
+  HospitalProvider,
+  PreAuthorization,
 } from "./types";
 
-export const doctorApi = {
-  /* ---------------- PATIENTS ---------------- */
-
+export const hospitalApi = {
   async addPatient(data: Patient): Promise<Patient> {
     const res = await axiosInstance.post("/api/patients", data);
     return res.data.data;
@@ -40,19 +40,10 @@ export const doctorApi = {
     return await axiosInstance.delete(`/api/patients/${id}`);
   },
 
-  // UPDATED (status route remained same)
   async updatePatientStatus(id: string, payload: any): Promise<Patient> {
     const res = await axiosInstance.patch(`/api/patients/${id}/status`, payload);
     return res.data.data;
   },
-
-  // REMOVED OLD INVALID ENDPOINTS (but NOT deleted from file — commented only)
-  // async updatePatientNextAppointment ...
-  // async updatePatientLastVisit ...
-  // async updatePatientDiagnosis ...
-  // async updatePatientInsurance ...
-
-  /* ---------------- REPORTS ---------------- */
 
   async createReport(data: MedicalReport): Promise<MedicalReport> {
     const res = await axiosInstance.post("/api/reports", data);
@@ -74,7 +65,10 @@ export const doctorApi = {
     return res.data.data;
   },
 
-  async updateReport(id: string, data: Partial<MedicalReport>): Promise<MedicalReport> {
+  async updateReport(
+    id: string,
+    data: Partial<MedicalReport>
+  ): Promise<MedicalReport> {
     const res = await axiosInstance.put(`/api/reports/${id}`, data);
     return res.data.data;
   },
@@ -84,30 +78,25 @@ export const doctorApi = {
   },
 
   async searchReports(q: string): Promise<MedicalReport[]> {
-    const res = await axiosInstance.get(`/api/reports/search/${encodeURIComponent(q)}`);
-    return res.data.data;
-  },
-
-  async addReportFiles(reportId: string, files: ReportFile[]) {
-    const res = await axiosInstance.put(`/api/reports/files/${reportId}`, {
-      files,
-    });
-    return res.data.data;
-  },
-
-  async deleteReportFile(reportId: string, fileId: string) {
-    const res = await axiosInstance.delete(
-      `/api/reports/files/${reportId}/${fileId}`
+    const res = await axiosInstance.get(
+      `/api/reports/search/${encodeURIComponent(q)}`
     );
     return res.data.data;
   },
 
   async addProcedure(reportId: string, procedure: ProcedureCode) {
-    const res = await axiosInstance.post(`/api/reports/procedure/${reportId}`, procedure);
+    const res = await axiosInstance.post(
+      `/api/reports/procedure/${reportId}`,
+      procedure
+    );
     return res.data.data;
   },
 
-  async updateServiceDates(reportId: string, from?: string | null, to?: string | null) {
+  async updateServiceDates(
+    reportId: string,
+    from?: string | null,
+    to?: string | null
+  ) {
     const res = await axiosInstance.put(`/api/reports/service-dates/${reportId}`, {
       from,
       to,
@@ -127,6 +116,16 @@ export const doctorApi = {
       referringProviderName: name,
       referringProviderNPI: npi,
     });
+    return res.data.data;
+  },
+
+  async getAllHospitalProviders(): Promise<HospitalProvider[]> {
+    const res = await axiosInstance.get("/api/reports/hospital-providers/all");
+    return res.data.data;
+  },
+
+  async getAllPreAuthorizations(): Promise<PreAuthorization[]> {
+    const res = await axiosInstance.get("/api/reports/pre-authorizations/all");
     return res.data.data;
   },
 };

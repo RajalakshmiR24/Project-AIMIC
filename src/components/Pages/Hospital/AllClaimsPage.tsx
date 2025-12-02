@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { Eye, RefreshCcw, Search } from "lucide-react";
-import { useDoctor } from "../../../contexts/DoctorContext";
+
+import { useHospital } from "../../../contexts/HospitalContext";
 import { useClaims } from "../../../contexts/ClaimsContext";
 import { Claim } from "../../../api/claims.api";
 
 const AllClaimsPage: React.FC = () => {
-  const { patients, fetchPatients } = useDoctor();
+  const { patients, fetchPatients } = useHospital();
   const { claims, loading: claimsLoading, fetchClaims, fetchClaimById } = useClaims();
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -74,7 +75,9 @@ const AllClaimsPage: React.FC = () => {
 
     const f = sourceClaims.filter((c) => {
       const patientName =
-        typeof c.patientId === "object" ? c.patientId?.fullName : patients.find((p) => p._id === c.patientId)?.fullName;
+        typeof c.patientId === "object"
+          ? c.patientId?.fullName
+          : patients.find((p) => p._id === c.patientId)?.fullName;
 
       return (
         String(c.claimNumber || "").toLowerCase().includes(q) ||
@@ -93,19 +96,15 @@ const AllClaimsPage: React.FC = () => {
       await Promise.all([fetchPatients(), fetchClaims()]);
       setLoading(false);
     };
-
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // when claims or patients update, recompute filtered list
     setFiltered(claims);
   }, [claims, patients]);
 
   useEffect(() => {
     handleSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   const isLoading = loading || claimsLoading;
@@ -142,7 +141,7 @@ const AllClaimsPage: React.FC = () => {
         </button>
       </div>
 
-      {/* RESPONSIVE SCROLL TABLE */}
+      {/* TABLE */}
       <div className="w-full overflow-x-auto rounded-xl border bg-white shadow-sm">
         {isLoading ? (
           <p className="p-5 text-center">Loading...</p>
@@ -162,7 +161,9 @@ const AllClaimsPage: React.FC = () => {
             <tbody>
               {filtered.map((c) => {
                 const patient =
-                  typeof c.patientId === "object" ? c.patientId : patients.find((p) => p._id === c.patientId);
+                  typeof c.patientId === "object"
+                    ? c.patientId
+                    : patients.find((p) => p._id === c.patientId);
 
                 return (
                   <tr key={c._id} className="border-t hover:bg-gray-50">
@@ -176,7 +177,10 @@ const AllClaimsPage: React.FC = () => {
                     <td className="p-3">{formatDate(c.createdAt)}</td>
 
                     <td className="p-3 text-right">
-                      <button onClick={() => openViewClaimModal(c._id as string)} className="p-2 bg-gray-100 rounded-lg">
+                      <button
+                        onClick={() => openViewClaimModal(c._id as string)}
+                        className="p-2 bg-gray-100 rounded-lg"
+                      >
                         <Eye size={16} />
                       </button>
                     </td>

@@ -36,11 +36,11 @@ const LoginPage = () => {
     }
   };
 
-  const handleDemoLogin = async (role: "employee" | "doctor" | "insurance") => {
+  const handleDemoLogin = async (role: "employee" | "hospital" | "insurance") => {
     const demo: Record<typeof role, LoginCredentials> = {
-      employee: { email: "employee@mediclaim.com", password: "password123" },
-      doctor: { email: "doctor@mediclaim.com", password: "password123" },
-      insurance: { email: "insurance@mediclaim.com", password: "password123" },
+      employee: { email: "employee@aimic.com", password: "password123" },
+      hospital: { email: "hospital@aimic.com", password: "password123" },
+      insurance: { email: "insurance@aimic.com", password: "password123" },
     };
     setFormData(demo[role]);
     setTimeout(() => document.getElementById("login-submit")?.dispatchEvent(new Event("click", { bubbles: true })), 0);
@@ -68,8 +68,8 @@ const LoginPage = () => {
             <button onClick={() => handleDemoLogin("employee")} className="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors">
               Employee
             </button>
-            <button onClick={() => handleDemoLogin("doctor")} className="text-xs bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 transition-colors">
-              Doctor
+            <button onClick={() => handleDemoLogin("hospital")} className="text-xs bg-teal-600 text-white px-3 py-2 rounded-lg hover:bg-teal-700 transition-colors">
+              Hospital
             </button>
             <button onClick={() => handleDemoLogin("insurance")} className="text-xs bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors">
               Insurance

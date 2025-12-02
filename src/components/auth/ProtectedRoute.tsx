@@ -6,7 +6,7 @@ import { roleToPath } from "../../utils/jwt";
 
 type Props = {
   children: React.ReactNode;
-  allowedRoles?: string[]; // e.g., ['employee'] | ['doctor'] | ['insurance']
+  allowedRoles?: string[]; // e.g., ['employee'] | ['hospital'] | ['insurance']
 };
 
 const ProtectedRoute: React.FC<Props> = ({ children, allowedRoles }) => {

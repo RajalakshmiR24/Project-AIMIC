@@ -88,10 +88,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     const decoded = decodeRoleFromToken(token) as Role | null;
     const apiRole = raw?.user?.role as Role | undefined;
 
-    if (apiRole === "employee" || apiRole === "doctor" || apiRole === "insurance")
+    if (apiRole === "employee" || apiRole === "hospital" || apiRole === "insurance")
       return apiRole;
 
-    if (decoded === "employee" || decoded === "doctor" || decoded === "insurance")
+    if (decoded === "employee" || decoded === "hospital" || decoded === "insurance")
       return decoded;
 
     return fallback;

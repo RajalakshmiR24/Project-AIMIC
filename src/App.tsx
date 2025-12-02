@@ -11,25 +11,24 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 import LandingPage from "./components/LandingPage";
 import LoginPage from "./components/auth/LoginPage";
-import RegisterPage from "./components/auth/RegisterPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 import EmployeePortal from "./components/portals/EmployeePortal";
 import InsurancePortal from "./components/portals/InsurancePortal";
-import DoctorPortal from "./components/portals/DoctorPortal";
+import HospitalPortal from "./components/portals/HospitalPortal";
 
 import ChatBot from "./components/ChatBot";
 
 import { decodeRoleFromToken, roleToPath } from "./utils/jwt";
 
 // Providers
-import { DoctorProvider } from "./contexts/DoctorContext";
 import { ClaimsProvider } from "./contexts/ClaimsContext";
 import { InsuranceProvider } from "./contexts/InsuranceContext";
 import { EmployeeProvider } from "./contexts/EmployeeContext";
+import { HospitalProvider } from "./contexts/HospitalContext";
 
 /* ---------------------------------------------
-   Redirects user to their correct portal
+   Redirect user based on assigned role
 ---------------------------------------------- */
 const HomeRouter: React.FC = () => {
   const { isAuthenticated, user, token, isLoading } = useAuth();
@@ -56,12 +55,11 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          {/* Root */}
+          {/* ROOT */}
           <Route path="/" element={<HomeRouter />} />
 
-          {/* Auth */}
+          {/* AUTH */}
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
 
           {/* EMPLOYEE PORTAL */}
           <Route
@@ -70,8 +68,8 @@ function App() {
               <ProtectedRoute allowedRoles={["employee"]}>
                 <EmployeeProvider>
                   <ClaimsProvider>
-                <EmployeePortal />
-                </ClaimsProvider>
+                    <EmployeePortal />
+                  </ClaimsProvider>
                 </EmployeeProvider>
               </ProtectedRoute>
             }
@@ -89,16 +87,16 @@ function App() {
             }
           />
 
-          {/* DOCTOR PORTAL */}
+          {/* HOSPITAL PORTAL — NOW HANDLES HospitalPortal */}
           <Route
-            path="/doctor/*"
+            path="/hospital/*"
             element={
-              <ProtectedRoute allowedRoles={["doctor"]}>
-                <DoctorProvider>
+              <ProtectedRoute allowedRoles={["hospital"]}>
+                <HospitalProvider>
                   <ClaimsProvider>
-                    <DoctorPortal />
+                    <HospitalPortal />
                   </ClaimsProvider>
-                </DoctorProvider>
+                </HospitalProvider>
               </ProtectedRoute>
             }
           />
@@ -126,7 +124,7 @@ function App() {
             }
           />
 
-          {/* Fallback */}
+          {/* FALLBACK */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 

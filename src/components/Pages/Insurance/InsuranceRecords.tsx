@@ -11,14 +11,209 @@ import {
   PlusIcon,
 } from "@heroicons/react/24/solid";
 
-/* -------- SAFE HELPERS -------- */
-const getPatientName = (p: string | Patient) =>
-  typeof p === "string" ? "Unknown" : p?.fullName ?? "Unknown";
+const getPatientName = (p: Patient) =>
+  p ? `${p.firstName} ${p.lastName}` : "Unknown";
 
-const safeValue = (val: string | null | undefined) => val ?? "";
+const safe = (v: any) => v ?? "";
 
-/* --------------------------------------- */
+/* ----------------------------------------------------
+   FULL DYNAMIC RENDERER FOR ALL FIELDS (VIEW ONLY)
+---------------------------------------------------- */
+const isObject = (v: any) => v && typeof v === "object" && !Array.isArray(v);
 
+const RenderField = ({ label, value }: { label: string; value: any }) => {
+  if (isObject(value)) {
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-2 capitalize">
+          {label}
+        </h3>
+        <div className="pl-4 border-l space-y-2">
+          {Object.entries(value).map(([k, v]) => (
+            <RenderField key={k} label={k} value={v} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-2 capitalize">
+          {label}
+        </h3>
+        <div className="space-y-3">
+          {value.map((item, i) => (
+            <div key={i} className="border rounded p-3 bg-gray-50">
+              {isObject(item)
+                ? Object.entries(item).map(([k, v]) => (
+                  <RenderField key={k} label={k} value={v} />
+                ))
+                : String(item)}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-between border-b pb-1 text-sm">
+      <span className="font-medium text-gray-600 capitalize">{label}</span>
+      <span className="text-gray-800">{String(value)}</span>
+    </div>
+  );
+};
+
+const InsuranceDetailsFull = ({ data }: { data: any }) => {
+  if (!data) return null;
+
+  return (
+    <div className="p-6 max-h-[85vh] overflow-auto space-y-6">
+      <h2 className="text-2xl font-semibold text-gray-800 border-b pb-3">
+        Insurance Full Details
+      </h2>
+
+      {Object.entries(data).map(([k, v]) => (
+        <RenderField key={k} label={k} value={v} />
+      ))}
+    </div>
+  );
+};
+
+/* ----------------------------------------------------
+   DYNAMIC FULL EDIT FORM
+---------------------------------------------------- */
+const EditField = ({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: any;
+  onChange: (v: any) => void;
+}) => {
+  // PRIMITIVE FIELDS — SINGLE INPUT
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null ||
+    value === undefined
+  ) {
+    return (
+      <div className="mb-3">
+        <label className="text-sm font-medium block mb-1 capitalize">
+          {label}
+        </label>
+        <input
+          className="w-full border px-3 py-2 rounded"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </div>
+    );
+  }
+
+  // ARRAY FIELDS (ONLY HANDLE real arrays, not strings)
+  if (Array.isArray(value)) {
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-2 capitalize">
+          {label}
+        </h3>
+
+        {value.map((item, i) => (
+          <div key={i} className="border rounded p-3 bg-gray-50 mb-3">
+            {typeof item === "object" && item !== null ? (
+              Object.entries(item).map(([k, v]) => (
+                <EditField
+                  key={k}
+                  label={k}
+                  value={v}
+                  onChange={(v2) => {
+                    const arr = [...value];
+                    arr[i] = { ...arr[i], [k]: v2 };
+                    onChange(arr);
+                  }}
+                />
+              ))
+            ) : (
+              <input
+                className="w-full border px-3 py-2 rounded"
+                value={item ?? ""}
+                onChange={(e) => {
+                  const arr = [...value];
+                  arr[i] = e.target.value;
+                  onChange(arr);
+                }}
+              />
+            )}
+
+            <button
+              className="mt-2 px-3 py-1 bg-red-500 text-white rounded text-xs"
+              onClick={() => onChange(value.filter((_, idx) => idx !== i))}
+            >
+              Remove
+            </button>
+          </div>
+        ))}
+
+        <button
+          className="px-3 py-1 bg-blue-600 text-white text-xs rounded"
+          onClick={() => onChange([...value, {}])}
+        >
+          + Add Item
+        </button>
+      </div>
+    );
+  }
+
+  // OBJECT FIELDS
+  if (typeof value === "object") {
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-2 capitalize">
+          {label}
+        </h3>
+        {Object.entries(value).map(([k, v]) => (
+          <EditField
+            key={k}
+            label={k}
+            value={v}
+            onChange={(v2) => onChange({ ...value, [k]: v2 })}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const DynamicInsuranceEditForm = ({
+  data,
+  setData,
+}: {
+  data: any;
+  setData: (d: any) => void;
+}) => (
+  <div className="space-y-6">
+    {Object.entries(data).map(([k, v]) => (
+      <EditField
+        key={k}
+        label={k}
+        value={v}
+        onChange={(val) => setData({ ...data, [k]: val })}
+      />
+    ))}
+  </div>
+);
+
+/* -----------------------------------------------------
+   MAIN COMPONENT
+----------------------------------------------------- */
 const InsuranceRecords: React.FC = () => {
   const {
     records,
@@ -26,7 +221,7 @@ const InsuranceRecords: React.FC = () => {
     fetchInsurance,
     deleteInsurance,
     updateInsurance,
-    addInsurance: createInsurance,
+    addInsurance,
   } = useInsurance();
 
   const [search, setSearch] = useState("");
@@ -34,123 +229,61 @@ const InsuranceRecords: React.FC = () => {
 
   const [editing, setEditing] = useState<Insurance | null>(null);
   const [adding, setAdding] = useState<Partial<Insurance> | null>(null);
+  const [fullView, setFullView] = useState<any>(null);
 
-  /* LOAD INITIAL */
   useEffect(() => {
     fetchInsurance();
   }, []);
 
-  /* FILTER */
   const filtered = useMemo(() => {
     const s = search.toLowerCase();
-
     return records.filter((r) => {
-      const provider = r.insuranceProvider?.toLowerCase() || "";
-      const policy = r.policyNumber?.toLowerCase() || "";
-      const patient = getPatientName(r.patientId)?.toLowerCase() || "";
-      return provider.includes(s) || policy.includes(s) || patient.includes(s);
+      const provider = r.insuranceProvider?.toLowerCase();
+      const policy = r.policyNumber?.toLowerCase();
+      const patient = getPatientName(r.patientId)?.toLowerCase();
+
+      return (
+        provider?.includes(s) ||
+        policy?.includes(s) ||
+        patient?.includes(s)
+      );
     });
   }, [records, search]);
 
-  /* PAGINATION */
   const perPage = 7;
-  const totalPages = Math.ceil(filtered.length / perPage);
   const paginated = filtered.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.ceil(filtered.length / perPage);
 
-  const formatDate = (d?: string | Date | null) => {
-    if (!d) return "—";
-    return new Date(d).toLocaleString();
-  };
-
-  const handleView = (ins: Insurance) => {
-    Swal.fire({
-      title: `<strong>${ins.insuranceProvider}</strong>`,
-      html: `
-        <div style="display:flex; gap:20px; font-size:14px; text-align:left;">
-        <div style="width:50%; line-height:1.6;">
-            <h3 style="font-size:16px; margin-bottom:8px;">Basic Details</h3>
-            <p><b>Provider:</b> ${ins.insuranceProvider ?? "—"}</p>
-            <p><b>Plan:</b> ${ins.planName ?? "—"}</p>
-            <p><b>Policy Number:</b> ${ins.policyNumber ?? "—"}</p>
-            <p><b>Group Number:</b> ${ins.groupNumber ?? "—"}</p>
-            <p><b>Insured Name:</b> ${ins.insuredName ?? "—"}</p>
-            <p><b>Insured Phone:</b> ${ins.insuredPhone ?? "—"}</p>
-            <p><b>Patient:</b> ${getPatientName(ins.patientId)}</p>
-
-            <p><b>Created At:</b> ${formatDate(ins.createdAt)}</p>
-            <p><b>Updated At:</b> ${formatDate(ins.updatedAt)}</p>
-        </div>
-
-        <div style="width:50%; line-height:1.6;">
-          <h3 style="font-size:16px; margin-bottom:8px;">Other Details</h3>
-          <p><b>Other Insurance:</b> ${ins.otherInsuranceExists ? "Yes" : "No"}</p>
-          <p><b>Prior Authorization #:</b> ${ins.priorAuthorizationNumber ?? "—"}</p>
-          <p><b>Auto Accident:</b> ${ins.autoAccident ? "Yes" : "No"}</p>
-          <p><b>Employment Related:</b> ${ins.employmentRelated ? "Yes" : "No"}</p>
-          <p><b>Other Accident:</b> ${ins.otherAccident ? "Yes" : "No"}</p>
-          <p><b>Outside Lab:</b> ${ins.outsideLab ? "Yes" : "No"}</p>
-
-          <h3 style="font-size:16px; margin-top:12px;">Insurance Card</h3>
-          <div style="margin-top:8px;">
-            <p><b>Front:</b></p>
-            ${
-              ins.insuranceCardFrontBase64
-                ? `<img src="data:image/png;base64,${ins.insuranceCardFrontBase64}" style="width:100%; border-radius:8px;" />`
-                : "—"
-            }
-
-            <p style="margin-top:12px;"><b>Back:</b></p>
-            ${
-              ins.insuranceCardBackBase64
-                ? `<img src="data:image/png;base64,${ins.insuranceCardBackBase64}" style="width:100%; border-radius:8px;" />`
-                : "—"
-            }
-          </div>
-        </div>
-      </div>`,
-      width: 700,
-      confirmButtonText: "Close",
-    });
-  };
-
-  /* DELETE */
   const handleDelete = async (id: string) => {
     const res = await Swal.fire({
-      title: "Delete This Record?",
-      text: "This action cannot be undone.",
+      title: "Delete?",
+      text: "This cannot be undone.",
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#d33",
-      cancelButtonColor: "#888",
     });
 
     if (res.isConfirmed) {
       await deleteInsurance(id);
-      Swal.fire("Deleted!", "Record removed.", "success");
+      Swal.fire("Deleted", "", "success");
     }
   };
 
-  /* SAVE EDIT */
   const handleEditSave = async () => {
     if (!editing) return;
-
     await updateInsurance(editing._id!, editing);
-    Swal.fire("Updated", "Record updated successfully.", "success");
+    Swal.fire("Updated", "", "success");
     setEditing(null);
     fetchInsurance();
   };
 
-  /* SAVE NEW RECORD */
   const handleAddSave = async () => {
     if (!adding) return;
-
-    await createInsurance(adding);
-    Swal.fire("Added", "New record added successfully.", "success");
+    await addInsurance(adding);
+    Swal.fire("Added", "", "success");
     setAdding(null);
     fetchInsurance();
   };
 
-  /* REUSABLE INPUT FIELD */
   const Input = ({
     label,
     value,
@@ -163,271 +296,501 @@ const InsuranceRecords: React.FC = () => {
     <input
       className="w-full border px-3 py-2 rounded"
       placeholder={label}
-      value={value}
+      value={safe(value)}
       onChange={(e) => onChange(e.target.value)}
     />
   );
 
-  /* ---------------------- MODAL UI SHARED ---------------------- */
   const InsuranceForm = ({
     data,
     setData,
   }: {
     data: any;
     setData: (d: any) => void;
-  }) => (
-    <div className="grid grid-cols-2 gap-6">
+  }) => {
+    const update = (key: string, value: any) =>
+      setData({ ...data, [key]: value });
 
-      {/* LEFT SIDE */}
-      <div className="space-y-6">
+    const updateNested = (parent: string, key: string, value: any) =>
+      setData({ ...data, [parent]: { ...(data[parent] || {}), [key]: value } });
 
-        <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-gray-700 border-b pb-1">Insurance Details</h4>
-
-          <Input label="Insurance Provider" value={data.insuranceProvider} onChange={(v) => setData({ ...data, insuranceProvider: v })} />
-
-          <Input label="Plan Name" value={data.planName} onChange={(v) => setData({ ...data, planName: v })} />
-
-          <Input label="Policy Number" value={data.policyNumber} onChange={(v) => setData({ ...data, policyNumber: v })} />
-
-          <Input label="Group Number" value={data.groupNumber} onChange={(v) => setData({ ...data, groupNumber: v })} />
-        </div>
-
-        <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-gray-700 border-b pb-1">Insured Person</h4>
-
-          <Input label="Insured Name" value={data.insuredName} onChange={(v) => setData({ ...data, insuredName: v })} />
-
-          <Input label="Insured Phone" value={data.insuredPhone} onChange={(v) => setData({ ...data, insuredPhone: v })} />
-
-          <Input label="Address Line 1" value={data.insuredAddressLine1} onChange={(v) => setData({ ...data, insuredAddressLine1: v })} />
-
-          <Input label="Address Line 2" value={data.insuredAddressLine2} onChange={(v) => setData({ ...data, insuredAddressLine2: v })} />
-
-          <Input label="City" value={data.insuredCity} onChange={(v) => setData({ ...data, insuredCity: v })} />
-
-          <Input label="State" value={data.insuredState} onChange={(v) => setData({ ...data, insuredState: v })} />
-
-          <Input label="Zip Code" value={data.insuredZipCode} onChange={(v) => setData({ ...data, insuredZipCode: v })} />
-        </div>
-
+    const Input = ({
+      label,
+      value,
+      onChange,
+      type = "text",
+    }: {
+      label: string;
+      value: any;
+      type?: string;
+      onChange: (v: any) => void;
+    }) => (
+      <div>
+        <label className="text-sm font-medium block mb-1">{label}</label>
+        <input
+          type={type}
+          className="w-full border px-3 py-2 rounded"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
       </div>
+    );
 
-      {/* RIGHT SIDE */}
-      <div className="space-y-6">
-
-        <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-gray-700 border-b pb-1">Accident & Employment</h4>
-
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={data.autoAccident} onChange={(e) => setData({ ...data, autoAccident: e.target.checked })} />
-            Auto Accident
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={data.employmentRelated} onChange={(e) => setData({ ...data, employmentRelated: e.target.checked })} />
-            Employment Related
-          </label>
-
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={data.otherAccident} onChange={(e) => setData({ ...data, otherAccident: e.target.checked })} />
-            Other Accident
-          </label>
-
-          <Input label="Auto Accident State" value={data.autoAccidentState} onChange={(v) => setData({ ...data, autoAccidentState: v })} />
-        </div>
-
-        <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-gray-700 border-b pb-1">Other Insurance</h4>
-
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={data.otherInsuranceExists} onChange={(e) => setData({ ...data, otherInsuranceExists: e.target.checked })} />
-            Other Insurance Exists
-          </label>
-
-          <Input label="Insurance Name" value={data.otherInsuranceName} onChange={(v) => setData({ ...data, otherInsuranceName: v })} />
-
-          <Input label="Policy Number" value={data.otherInsurancePolicyNumber} onChange={(v) => setData({ ...data, otherInsurancePolicyNumber: v })} />
-
-          <Input label="Group Number" value={data.otherInsuranceGroupNumber} onChange={(v) => setData({ ...data, otherInsuranceGroupNumber: v })} />
-        </div>
-
-        <div className="space-y-3">
-          <h4 className="text-lg font-semibold text-gray-700 border-b pb-1">Hospitalization</h4>
-
-          <label className="text-sm">From</label>
-          <input
-            type="date"
-            className="w-full border px-3 py-2 rounded"
-            value={safeValue(data.hospitalizationFrom)}
-            onChange={(e) => setData({ ...data, hospitalizationFrom: e.target.value })}
-          />
-
-          <label className="text-sm">To</label>
-          <input
-            type="date"
-            className="w-full border px-3 py-2 rounded"
-            value={safeValue(data.hospitalizationTo)}
-            onChange={(e) => setData({ ...data, hospitalizationTo: e.target.value })}
-          />
-        </div>
-
+    const Section = ({ title, children }: any) => (
+      <div className="border rounded-lg p-5 space-y-4">
+        <h4 className="font-semibold text-gray-700 pb-2 border-b">{title}</h4>
+        {children}
       </div>
+    );
 
-    </div>
-  );
+    return (
+      <div className="space-y-8">
+        {/* BASIC INSURANCE INFO */}
+        <Section title="Insurance Details">
+          <div className="grid grid-cols-2 gap-6">
+            <Input
+              label="Insurance Provider"
+              value={data.insuranceProvider}
+              onChange={(v) => update("insuranceProvider", v)}
+            />
+            <Input
+              label="Plan Name"
+              value={data.planName}
+              onChange={(v) => update("planName", v)}
+            />
+            <Input
+              label="Plan Type"
+              value={data.planType}
+              onChange={(v) => update("planType", v)}
+            />
+            <Input
+              label="Policy Number"
+              value={data.policyNumber}
+              onChange={(v) => update("policyNumber", v)}
+            />
+            <Input
+              label="Group Number"
+              value={data.groupNumber}
+              onChange={(v) => update("groupNumber", v)}
+            />
+            <Input
+              label="Phone"
+              value={data.phone}
+              onChange={(v) => update("phone", v)}
+            />
+            <Input
+              label="Effective Date"
+              type="date"
+              value={data.effectiveDate?.substring(0, 10)}
+              onChange={(v) => update("effectiveDate", v)}
+            />
+            <Input
+              label="Expiration Date"
+              type="date"
+              value={data.expirationDate?.substring(0, 10)}
+              onChange={(v) => update("expirationDate", v)}
+            />
+            <Input
+              label="Status"
+              value={data.status}
+              onChange={(v) => update("status", v)}
+            />
+            <Input
+              label="Primary Insured"
+              value={data.primaryInsured}
+              onChange={(v) => update("primaryInsured", v)}
+            />
+          </div>
+        </Section>
+
+        {/* ADDRESS */}
+        <Section title="Insurance Address">
+          <div className="grid grid-cols-2 gap-6">
+            <Input
+              label="Line 1"
+              value={data.address?.line1}
+              onChange={(v) => updateNested("address", "line1", v)}
+            />
+            <Input
+              label="City"
+              value={data.address?.city}
+              onChange={(v) => updateNested("address", "city", v)}
+            />
+            <Input
+              label="State"
+              value={data.address?.state}
+              onChange={(v) => updateNested("address", "state", v)}
+            />
+            <Input
+              label="Postal Code"
+              value={data.address?.postalCode}
+              onChange={(v) => updateNested("address", "postalCode", v)}
+            />
+            <Input
+              label="Country"
+              value={data.address?.country}
+              onChange={(v) => updateNested("address", "country", v)}
+            />
+          </div>
+        </Section>
+
+        {/* BILLING CONTACT */}
+        <Section title="Billing Contact">
+          <div className="grid grid-cols-2 gap-6">
+            <Input
+              label="Name"
+              value={data.billingContact?.name}
+              onChange={(v) => updateNested("billingContact", "name", v)}
+            />
+            <Input
+              label="Email"
+              value={data.billingContact?.email}
+              onChange={(v) => updateNested("billingContact", "email", v)}
+            />
+            <Input
+              label="Phone"
+              value={data.billingContact?.phone}
+              onChange={(v) => updateNested("billingContact", "phone", v)}
+            />
+          </div>
+        </Section>
+
+        {/* BENEFITS */}
+        <Section title="Benefits Summary">
+          <div className="grid grid-cols-2 gap-6">
+            <Input
+              label="Deductible"
+              value={data.benefitsSummary?.deductible}
+              onChange={(v) => updateNested("benefitsSummary", "deductible", v)}
+            />
+            <Input
+              label="Out of Pocket Max"
+              value={data.benefitsSummary?.outOfPocketMax}
+              onChange={(v) => updateNested("benefitsSummary", "outOfPocketMax", v)}
+            />
+            <Input
+              label="Coinsurance"
+              value={data.benefitsSummary?.coinsurance}
+              onChange={(v) => updateNested("benefitsSummary", "coinsurance", v)}
+            />
+            <Input
+              label="Copay"
+              value={data.benefitsSummary?.copay}
+              onChange={(v) => updateNested("benefitsSummary", "copay", v)}
+            />
+            <Input
+              label="Currency"
+              value={data.benefitsSummary?.currency}
+              onChange={(v) => updateNested("benefitsSummary", "currency", v)}
+            />
+          </div>
+        </Section>
+
+        {/* POLICY HOLDER */}
+        <Section title="Policy Holder">
+          <div className="grid grid-cols-2 gap-6">
+            <Input
+              label="First Name"
+              value={data.policyHolder?.firstName}
+              onChange={(v) => updateNested("policyHolder", "firstName", v)}
+            />
+            <Input
+              label="Last Name"
+              value={data.policyHolder?.lastName}
+              onChange={(v) => updateNested("policyHolder", "lastName", v)}
+            />
+            <Input
+              label="Relation"
+              value={data.policyHolder?.relationToPatient}
+              onChange={(v) =>
+                updateNested("policyHolder", "relationToPatient", v)
+              }
+            />
+            <Input
+              label="Member ID"
+              value={data.policyHolder?.memberId}
+              onChange={(v) => updateNested("policyHolder", "memberId", v)}
+            />
+
+            <Input
+              type="date"
+              label="DOB"
+              value={data.policyHolder?.dob?.substring(0, 10)}
+              onChange={(v) => updateNested("policyHolder", "dob", v)}
+            />
+          </div>
+        </Section>
+
+        {/* COVERAGE LIMITS */}
+        <Section title="Coverage Limits">
+          {(data.coverageLimits || []).map((limit: any, i: number) => (
+            <div key={i} className="border p-4 rounded-lg bg-gray-50 space-y-3">
+              <Input
+                label="Type"
+                value={limit.type}
+                onChange={(v) => {
+                  const copy = [...data.coverageLimits];
+                  copy[i].type = v;
+                  update("coverageLimits", copy);
+                }}
+              />
+              <Input
+                label="Amount"
+                value={limit.amount}
+                onChange={(v) => {
+                  const copy = [...data.coverageLimits];
+                  copy[i].amount = v;
+                  update("coverageLimits", copy);
+                }}
+              />
+              <Input
+                label="Currency"
+                value={limit.currency}
+                onChange={(v) => {
+                  const copy = [...data.coverageLimits];
+                  copy[i].currency = v;
+                  update("coverageLimits", copy);
+                }}
+              />
+
+              <button
+                className="px-3 py-1 bg-red-500 text-white rounded text-xs"
+                onClick={() =>
+                  update(
+                    "coverageLimits",
+                    data.coverageLimits.filter((_: any, idx: number) => idx !== i)
+                  )
+                }
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+            onClick={() =>
+              update("coverageLimits", [
+                ...(data.coverageLimits || []),
+                { type: "", amount: "", currency: "" },
+              ])
+            }
+          >
+            + Add Coverage Limit
+          </button>
+        </Section>
+
+        {/* DOCUMENTS */}
+        <Section title="Documents">
+          {(data.documents || []).map((doc: any, i: number) => (
+            <div key={i} className="border p-4 rounded-lg bg-gray-50 space-y-3">
+              <Input
+                label="Document Name"
+                value={doc.name}
+                onChange={(v) => {
+                  const copy = [...data.documents];
+                  copy[i].name = v;
+                  update("documents", copy);
+                }}
+              />
+              <Input
+                label="Document URL"
+                value={doc.url}
+                onChange={(v) => {
+                  const copy = [...data.documents];
+                  copy[i].url = v;
+                  update("documents", copy);
+                }}
+              />
+
+              <button
+                className="px-3 py-1 bg-red-500 text-white rounded text-xs"
+                onClick={() =>
+                  update(
+                    "documents",
+                    data.documents.filter((_: any, idx: number) => idx !== i)
+                  )
+                }
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <button
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+            onClick={() =>
+              update("documents", [
+                ...(data.documents || []),
+                { name: "", url: "" },
+              ])
+            }
+          >
+            + Add Document
+          </button>
+        </Section>
+
+        {/* METADATA */}
+        <Section title="Metadata">
+          <Input
+            label="Uploaded By"
+            value={data.metadata?.uploadedBy}
+            onChange={(v) => updateNested("metadata", "uploadedBy", v)}
+          />
+        </Section>
+
+        {/* READONLY: PATIENT */}
+        <Section title="Patient (Read Only)">
+          <div className="bg-gray-100 p-3 rounded text-sm">
+            {data.patientId?.firstName} {data.patientId?.lastName}
+          </div>
+        </Section>
+      </div>
+    );
+  };
+
 
   return (
     <div className="space-y-10">
-
-      {/* PAGE HEADER */}
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold text-gray-700">Insurance Records</h2>
+        <h2 className="text-2xl font-semibold text-gray-700">
+          Insurance Records
+        </h2>
 
-        <div className="flex items-center gap-4">
-
-          {/* SEARCH */}
+        <div className="flex gap-4 items-center">
           <input
-            type="text"
-            placeholder="Search..."
-            className="px-4 py-2 border rounded-lg w-72 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            className="border px-3 py-2 w-72 rounded-lg"
+            placeholder="Search…"
             value={search}
             onChange={(e) => {
-              setPage(1);
               setSearch(e.target.value);
+              setPage(1);
             }}
           />
 
-          {/* ADD NEW */}
           <button
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg"
             onClick={() => setAdding({})}
           >
-            <PlusIcon className="w-5 h-5" />
-            Add
+            <PlusIcon className="w-5 h-5" /> Add
           </button>
 
-          {/* REFRESH */}
           <button
+            className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg"
             onClick={() => fetchInsurance()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 shadow-sm"
           >
-            <ArrowPathIcon className="w-5 h-5" />
-            Refresh
+            <ArrowPathIcon className="w-5 h-5" /> Refresh
           </button>
         </div>
       </div>
 
-      {/* TABLE */}
-      <div className="bg-white rounded-xl shadow-sm border">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm min-w-[800px]">
-            <thead className="bg-gray-50 border-b">
+      <div className="bg-white rounded-xl border shadow-sm">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="p-3 text-left w-12">#</th>
+              <th className="p-3 text-left">Provider</th>
+              <th className="p-3 text-left">Plan</th>
+              <th className="p-3 text-left">Policy #</th>
+              <th className="p-3 text-left">Group #</th>
+              <th className="p-3 text-left">Holder</th>
+              <th className="p-3 text-left">Patient</th>
+              <th className="p-3 text-center">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {loading ? (
               <tr>
-                <th className="p-3 text-left">Provider</th>
-                <th className="p-3 text-left">Policy</th>
-                <th className="p-3 text-left">Insured</th>
-                <th className="p-3 text-left">Patient</th>
-                <th className="p-3 text-center">Actions</th>
+                <td colSpan={8} className="p-4 text-center text-gray-500">
+                  Loading…
+                </td>
               </tr>
-            </thead>
+            ) : paginated.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="p-4 text-center text-gray-400">
+                  No results
+                </td>
+              </tr>
+            ) : (
+              paginated.map((ins, idx) => (
+                <tr key={ins._id} className="border-b hover:bg-gray-50">
+                  <td className="p-3 text-gray-600">
+                    {(page - 1) * perPage + idx + 1}
+                  </td>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-500">
-                    Loading…
+                  <td className="p-3">{ins.insuranceProvider}</td>
+                  <td className="p-3">{ins.planName || "—"}</td>
+                  <td className="p-3">{ins.policyNumber}</td>
+                  <td className="p-3">{ins.groupNumber || "—"}</td>
+
+                  <td className="p-3">
+                    {ins.policyHolder
+                      ? `${ins.policyHolder.firstName} ${ins.policyHolder.lastName}`
+                      : "—"}
+                  </td>
+
+                  <td className="p-3">{getPatientName(ins.patientId)}</td>
+
+                  <td className="p-3 flex justify-center gap-4">
+                    <button onClick={() => setFullView(ins)}>
+                      <EyeIcon className="w-5 h-5 text-blue-600" />
+                    </button>
+
+                    <button onClick={() => setEditing(ins)}>
+                      <PencilSquareIcon className="w-5 h-5 text-green-600" />
+                    </button>
+
+                    <button onClick={() => handleDelete(ins._id!)}>
+                      <TrashIcon className="w-5 h-5 text-red-600" />
+                    </button>
                   </td>
                 </tr>
-              ) : paginated.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="p-4 text-center text-gray-400">
-                    No records found
-                  </td>
-                </tr>
-              ) : (
-                paginated.map((ins) => (
-                  <tr key={ins._id} className="border-b hover:bg-gray-50">
-                    <td className="p-3">{ins.insuranceProvider}</td>
-                    <td className="p-3">{ins.policyNumber}</td>
-                    <td className="p-3">{ins.insuredName}</td>
-                    <td className="p-3">{getPatientName(ins.patientId)}</td>
+              ))
+            )}
+          </tbody>
+        </table>
 
-                    <td className="p-3 flex justify-center gap-4">
-                      <button onClick={() => handleView(ins)}>
-                        <EyeIcon className="w-5 h-5 text-blue-600 hover:text-blue-800" />
-                      </button>
-
-                      <button onClick={() => setEditing(ins)}>
-                        <PencilSquareIcon className="w-5 h-5 text-green-600 hover:text-green-800" />
-                      </button>
-
-                      <button onClick={() => handleDelete(ins._id!)}>
-                        <TrashIcon className="w-5 h-5 text-red-600 hover:text-red-800" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* PAGINATION */}
         {totalPages > 1 && (
           <div className="p-4 flex justify-center gap-2">
-            {Array.from({ length: totalPages }).map((_, i) => (
+            {Array.from({ length: totalPages }).map((_, idx) => (
               <button
-                key={i}
-                onClick={() => setPage(i + 1)}
-                className={`px-3 py-1 border rounded ${
-                  page === i + 1 ? "bg-green-600 text-white" : "bg-white"
-                }`}
+                key={idx}
+                onClick={() => setPage(idx + 1)}
+                className={`px-3 py-1 border rounded ${page === idx + 1 ? "bg-green-600 text-white" : ""
+                  }`}
               >
-                {i + 1}
+                {idx + 1}
               </button>
             ))}
           </div>
         )}
       </div>
 
-      {/* ---------------- ADD MODAL ---------------- */}
+      {/* ADD MODAL */}
       {adding && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto">
-          <div className="bg-white w-[900px] p-6 rounded-lg shadow-lg space-y-6 max-h-[95vh] overflow-y-auto">
-
-            <h3 className="text-2xl font-semibold text-gray-800 pb-2 border-b">Add Insurance</h3>
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setAdding(null)}
+        >          <div className="bg-white w-[900px] p-6 rounded-lg shadow-lg space-y-6 max-h-[95vh] overflow-auto" onClick={(e) => e.stopPropagation()}
+        >
+            <h3 className="text-xl font-semibold border-b pb-2">
+              Add Insurance
+            </h3>
 
             <InsuranceForm data={adding} setData={setAdding} />
 
             <div className="flex justify-end gap-3 pt-4 border-t">
-              <button className="px-4 py-2 bg-gray-300 rounded" onClick={() => setAdding(null)}>
+              <button
+                className="px-4 py-2 bg-gray-400 rounded"
+                onClick={() => setAdding(null)}
+              >
                 Cancel
               </button>
-
-              <button className="px-4 py-2 bg-blue-600 text-white rounded" onClick={handleAddSave}>
-                Add
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ---------------- EDIT MODAL ---------------- */}
-      {editing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 overflow-auto">
-          <div className="bg-white w-[900px] p-6 rounded-lg shadow-lg space-y-6 max-h-[95vh] overflow-y-auto">
-
-            <h3 className="text-2xl font-semibold text-gray-800 pb-2 border-b">Edit Insurance</h3>
-
-            <InsuranceForm data={editing} setData={setEditing} />
-
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button className="px-4 py-2 bg-gray-300 rounded" onClick={() => setEditing(null)}>
-                Cancel
-              </button>
-
-              <button className="px-4 py-2 bg-green-600 text-white rounded" onClick={handleEditSave}>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded"
+                onClick={handleAddSave}
+              >
                 Save
               </button>
             </div>
@@ -435,6 +798,56 @@ const InsuranceRecords: React.FC = () => {
         </div>
       )}
 
+      {/* EDIT MODAL — NOW FULL FIELD EDITOR */}
+      {editing && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
+          onClick={() => setEditing(null)}
+        >          <div className="bg-white w-[900px] p-6 rounded-lg shadow-lg space-y-6 max-h-[95vh] overflow-auto" onClick={(e) => e.stopPropagation()}
+        >
+            <h3 className="text-xl font-semibold border-b pb-2">
+              Edit Insurance (All Fields)
+            </h3>
+
+            <DynamicInsuranceEditForm data={editing} setData={setEditing} />
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                className="px-4 py-2 bg-gray-400 rounded"
+                onClick={() => setEditing(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-4 py-2 bg-green-600 text-white rounded"
+                onClick={handleEditSave}
+              >
+                Update
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FULL DATA VIEW MODAL */}
+      {fullView && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setFullView(null)}
+        >
+          <div className="bg-white w-[900px] rounded-lg shadow-lg max-h-[95vh] overflow-auto"   onClick={(e) => e.stopPropagation()}
+>
+            <InsuranceDetailsFull data={fullView} />
+
+            <div className="p-4 border-t text-right">
+              <button
+                className="px-4 py-2 bg-gray-600 text-white rounded"
+                onClick={() => setFullView(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

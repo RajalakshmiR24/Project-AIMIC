@@ -2,7 +2,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'employee' | 'doctor' | 'insurance';
+  role: 'employee' | 'hospital' | 'insurance';
   avatar?: string;
 }
 
@@ -15,7 +15,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role: 'employee' | 'doctor' | 'insurance';
+  role: 'employee' | 'hospital' | 'insurance';
   confirmPassword: string;
 }
 

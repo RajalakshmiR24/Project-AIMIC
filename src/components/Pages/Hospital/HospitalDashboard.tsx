@@ -1,11 +1,14 @@
-import { useDoctor } from "../../../contexts/DoctorContext";
+// src/components/Pages/Hospital/HospitalDashboard.tsx
+import { useHospital } from "../../../contexts/HospitalContext";
 import { useClaims } from "../../../contexts/ClaimsContext";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Users, FileText, Activity, IndianRupee } from "lucide-react";
 
-const DoctorDashboard = () => {
-  const { patients, reports, loading, fetchPatients, fetchReports } = useDoctor();
+
+
+const HospitalDashboard = () => {
+  const { patients, reports, loading, fetchPatients, fetchReports } = useHospital();
   const { claims, loading: claimsLoading, fetchClaims } = useClaims();
 
   const [refreshing, setRefreshing] = useState(false);
@@ -16,7 +19,9 @@ const DoctorDashboard = () => {
       .reduce((sum: number, c: any) => sum + (c.approvedAmount || 0), 0);
 
     const pendingRejected = claims
-      .filter((c: any) => c.claimStatus === "Pending" || c.claimStatus === "Rejected")
+      .filter(
+        (c: any) => c.claimStatus === "Pending" || c.claimStatus === "Rejected"
+      )
       .reduce((sum: number, c: any) => sum + (c.billedAmount || 0), 0);
 
     return {
@@ -52,13 +57,14 @@ const DoctorDashboard = () => {
       </div>
 
       <div className="grid md:grid-cols-5 gap-6">
-
         {/* Total Patients */}
         <div className="bg-white p-6 rounded-xl shadow-sm border">
           <div className="flex justify-between items-center">
             <div>
               <p className="text-gray-600 text-sm">Total Patients</p>
-              <p className="text-3xl font-bold">{loading ? "—" : totals.totalPatients}</p>
+              <p className="text-3xl font-bold">
+                {loading ? "—" : totals.totalPatients}
+              </p>
               <p className="text-xs text-green-600">Updated automatically</p>
             </div>
             <Users className="w-10 h-10 text-teal-600" />
@@ -106,7 +112,7 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* Pending + Rejected Amount */}
+        {/* Pending & Rejected Amount */}
         <div className="bg-white p-6 rounded-xl shadow-sm border">
           <div className="flex justify-between items-center">
             <div>
@@ -118,35 +124,49 @@ const DoctorDashboard = () => {
             <IndianRupee className="w-10 h-10 text-red-600" />
           </div>
         </div>
-
       </div>
 
-      {/* tables section remains unchanged */}
-      {/* --------------------- TABLES --------------------- */}
+      {/* TABLES */}
       <div className="grid lg:grid-cols-3 gap-10">
 
         {/* Recent Patients */}
         <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Patients</h2>
-            <Link to="/doctor/patients" className="text-sm text-teal-600">View All</Link>
+            <Link to="/hospital/patients" className="text-sm text-teal-600">
+              View All
+            </Link>
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
+                  <th className="p-3 font-medium text-gray-700">#</th>
                   <th className="p-3 font-medium text-gray-700">Name</th>
-                  <th className="p-3 font-medium text-gray-700">Age</th>
+                  <th className="p-3 font-medium text-gray-700">DOB</th>
+                  <th className="p-3 font-medium text-gray-700">Phone</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={2} className="p-4 text-center text-gray-500">Loading…</td></tr>
+                  <tr>
+                    <td colSpan={4} className="p-4 text-center text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
                 ) : (
-                  patients.slice(0, 5).map((p) => (
+                  patients.slice(0, 5).map((p, index) => (
                     <tr key={p._id} className="border-b hover:bg-gray-50">
-                      <td className="p-3 font-medium">{p.fullName}</td>
-                      <td className="p-3">{p.age}</td>
+                      <td className="p-3">{index + 1}</td>
+                      <td className="p-3 font-medium">
+                        {p.firstName} {p.lastName}
+                      </td>
+                      <td className="p-3">
+                        {p.dob ? new Date(p.dob).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="p-3">{p.phone || "—"}</td>
                     </tr>
                   ))
                 )}
@@ -155,12 +175,15 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Reports */}
+
         <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Reports</h2>
-            <Link to="/doctor/reports" className="text-sm text-teal-600">View All</Link>
+            <Link to="/hospital/reports" className="text-sm text-teal-600">
+              View All
+            </Link>
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
@@ -171,13 +194,19 @@ const DoctorDashboard = () => {
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={2} className="p-4 text-center text-gray-500">Loading…</td></tr>
+                  <tr>
+                    <td colSpan={2} className="p-4 text-center text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
                 ) : (
                   reports.slice(0, 5).map((r) => (
                     <tr key={r._id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{r.reportType}</td>
                       <td className="p-3">
-                        {typeof r.patientId === "string" ? r.patientId : r.patientId?.fullName}
+                        {typeof r.patientId === "string"
+                          ? r.patientId
+                          : `${r.patientId?.firstName} ${r.patientId?.lastName}`}
                       </td>
                     </tr>
                   ))
@@ -187,12 +216,14 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* Recent Claims */}
         <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
           <div className="p-6 border-b flex justify-between items-center">
             <h2 className="text-lg font-semibold">Recent Claims</h2>
-            <Link to="/doctor/claims" className="text-sm text-orange-600">View All</Link>
+            <Link to="/hospital/claims" className="text-sm text-orange-600">
+              View All
+            </Link>
           </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
@@ -204,23 +235,30 @@ const DoctorDashboard = () => {
               </thead>
               <tbody>
                 {claimsLoading ? (
-                  <tr><td colSpan={3} className="p-4 text-center text-gray-500">Loading…</td></tr>
+                  <tr>
+                    <td colSpan={3} className="p-4 text-center text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
                 ) : (
                   claims.slice(0, 5).map((c) => (
                     <tr key={c._id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium">{c.claimNumber}</td>
-                      <td className="p-3">{c.patientId?.fullName}</td>
+                      <td className="p-3">
+                        {c.patientId
+                          ? `${c.patientId.firstName} ${c.patientId.lastName}`
+                          : "Unknown"}
+                      </td>
                       <td className="p-3">
                         <span
-                          className={`px-3 py-1 text-xs rounded-full ${
-                            c.claimStatus === "Approved"
-                              ? "bg-green-100 text-green-700"
-                              : c.claimStatus === "Submitted"
+                          className={`px-3 py-1 text-xs rounded-full ${c.claimStatus === "Approved"
+                            ? "bg-green-100 text-green-700"
+                            : c.claimStatus === "Submitted"
                               ? "bg-blue-100 text-blue-700"
                               : c.claimStatus === "Rejected"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          }`}
+                                ? "bg-red-100 text-red-700"
+                                : "bg-yellow-100 text-yellow-700"
+                            }`}
                         >
                           {c.claimStatus}
                         </span>
@@ -232,10 +270,9 @@ const DoctorDashboard = () => {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   );
 };
 
-export default DoctorDashboard;
+export default HospitalDashboard;

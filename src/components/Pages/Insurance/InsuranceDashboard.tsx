@@ -13,24 +13,80 @@ import { Insurance, Patient } from "../../../api/types";
 
 /* ---------------- HELPERS ---------------- */
 
-const extractPatients = (ref?: Patient[] | any) => {
-  if (!ref) return [];
-  if (Array.isArray(ref)) return ref;
-  return [];
+const getPatientName = (ref?: Patient | any) => {
+  if (!ref) return "Unknown";
+  const first = ref.firstName ?? "";
+  const last = ref.lastName ?? "";
+  const full = `${first} ${last}`.trim();
+  return full || "Unknown";
 };
-
-const getPatientNames = (ref?: any) =>
-  extractPatients(ref)
-    .map((p) => p?.fullName ?? "Unknown")
-    .join(", ") || "Unknown";
-
-const getPatientIds = (ref?: any) =>
-  Array.from(new Set(extractPatients(ref).map((p) => p?._id))).filter(Boolean);
 
 const formatDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString() : "—";
 
-/* ----------------------------------------- */
+/* ----------------------------------------------------
+   FULL DYNAMIC RENDERER FOR ALL FIELDS (from InsuranceRecords)
+---------------------------------------------------- */
+const isObject = (v: any) => v && typeof v === "object" && !Array.isArray(v);
+
+const RenderField = ({ label, value }: { label: string; value: any }) => {
+  if (isObject(value)) {
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-2 capitalize">{label}</h3>
+        <div className="pl-4 border-l space-y-2">
+          {Object.entries(value).map(([k, v]) => (
+            <RenderField key={k} label={k} value={v} />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (Array.isArray(value)) {
+    return (
+      <div className="border rounded-lg p-4 mb-4">
+        <h3 className="font-semibold text-gray-700 mb-2 capitalize">{label}</h3>
+        <div className="space-y-3">
+          {value.map((item, i) => (
+            <div key={i} className="border rounded p-3 bg-gray-50">
+              {isObject(item)
+                ? Object.entries(item).map(([k, v]) => (
+                    <RenderField key={k} label={k} value={v} />
+                  ))
+                : String(item)}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-between border-b pb-1 text-sm">
+      <span className="font-medium text-gray-600 capitalize">{label}</span>
+      <span className="text-gray-800">{String(value)}</span>
+    </div>
+  );
+};
+
+const InsuranceDetailsFull = ({ data }: { data: any }) => {
+  if (!data) return null;
+
+  return (
+    <div className="p-6 max-h-[85vh] overflow-auto space-y-6">
+      <h2 className="text-2xl font-semibold text-gray-800 border-b pb-3">
+        Insurance Full Details
+      </h2>
+
+      {Object.entries(data).map(([k, v]) => (
+        <RenderField key={k} label={k} value={v} />
+      ))}
+    </div>
+  );
+};
+
+/* ---------------- COMPONENT ---------------- */
 
 const InsuranceDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -39,11 +95,13 @@ const InsuranceDashboard: React.FC = () => {
   const [search, setSearch] = useState("");
   const [filteredRecords, setFilteredRecords] = useState<Insurance[]>([]);
   const [pendingClaims, setPendingClaims] = useState<number>(0);
+  const [fullView, setFullView] = useState<any>(null);
 
+  /* Load insurance + claims */
   useEffect(() => {
     fetchInsurance();
     loadPendingClaims();
-  }, [fetchInsurance]);
+  }, []);
 
   const loadPendingClaims = async () => {
     try {
@@ -54,53 +112,56 @@ const InsuranceDashboard: React.FC = () => {
     }
   };
 
+  /* Search filter */
   useEffect(() => {
-    if (!search.trim()) {
+    const s = search.toLowerCase().trim();
+    if (!s) {
       setFilteredRecords(records);
       return;
     }
 
-    const s = search.toLowerCase().trim();
-
     const filtered = records.filter((r) => {
-      const provider = r.insuranceProvider ?? "";
-      const insuranceId = (r as any).insuranceId ?? "";
-      const patientNames = getPatientNames(r.patientId);
+      const provider = r.insuranceProvider?.toLowerCase() || "";
+      const insuranceId = (r as any).insuranceId?.toLowerCase() || "";
+      const patientName = getPatientName(r.patientId)?.toLowerCase();
 
       return (
-        provider.toLowerCase().includes(s) ||
-        insuranceId.toLowerCase().includes(s) ||
-        patientNames.toLowerCase().includes(s)
+        provider.includes(s) ||
+        insuranceId.includes(s) ||
+        patientName.includes(s)
       );
     });
 
     setFilteredRecords(filtered);
   }, [search, records]);
 
+  /* Stats */
   const stats = useMemo(() => {
-    const patients = new Set<string>();
-    records.forEach((r) =>
-      getPatientIds(r.patientId).forEach((id) => patients.add(id))
-    );
+    const patientSet = new Set<string>();
 
-    const providers = new Set(
+    records.forEach((r) => {
+      if (r.patientId?._id) patientSet.add(r.patientId._id);
+    });
+
+    const providerSet = new Set(
       records.map((r) => r.insuranceProvider?.trim()).filter(Boolean)
     );
 
     return {
       totalRecords: records.length,
-      totalProviders: providers.size,
-      totalPatients: patients.size,
+      totalProviders: providerSet.size,
+      totalPatients: patientSet.size,
     };
   }, [records]);
 
+  /* Latest 5 */
   const latestRecords = useMemo(
     () =>
       [...filteredRecords]
         .sort(
           (a, b) =>
-            new Date(b.createdAt ?? "").getTime() -
-            new Date(a.createdAt ?? "").getTime()
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime()
         )
         .slice(0, 5),
     [filteredRecords]
@@ -108,7 +169,6 @@ const InsuranceDashboard: React.FC = () => {
 
   return (
     <div className="space-y-10">
-
       {/* HEADER + SEARCH */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
@@ -127,40 +187,41 @@ const InsuranceDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* STAT CARDS */}
+      {/* STATS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-
-        {/* Total Records */}
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer">
           <div className="flex justify-between items-center">
             <p className="opacity-90">Total Records</p>
             <ShieldCheckIcon className="w-12 h-12 opacity-90" />
           </div>
-          <p className="text-4xl font-bold mt-3">{loading ? "—" : stats.totalRecords}</p>
+          <p className="text-4xl font-bold mt-3">
+            {loading ? "—" : stats.totalRecords}
+          </p>
         </div>
 
-        {/* Providers */}
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer">
           <div className="flex justify-between items-center">
             <p className="opacity-90">Providers</p>
             <BuildingLibraryIcon className="w-12 h-12 opacity-90" />
           </div>
-          <p className="text-4xl font-bold mt-3">{loading ? "—" : stats.totalProviders}</p>
+          <p className="text-4xl font-bold mt-3">
+            {loading ? "—" : stats.totalProviders}
+          </p>
         </div>
 
-        {/* Patients Covered */}
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer">
           <div className="flex justify-between items-center">
             <p className="opacity-90">Patients Covered</p>
             <UsersIcon className="w-12 h-12 opacity-90" />
           </div>
-          <p className="text-4xl font-bold mt-3">{loading ? "—" : stats.totalPatients}</p>
+          <p className="text-4xl font-bold mt-3">
+            {loading ? "—" : stats.totalPatients}
+          </p>
         </div>
 
-        {/* Pending Claims */}
         <div
           onClick={() => navigate("/claims")}
-          className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-2xl shadow-lg transform hover:scale-[1.02] transition cursor-pointer"
+          className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer"
         >
           <div className="flex justify-between items-center">
             <p className="opacity-90">Pending Claims</p>
@@ -168,7 +229,6 @@ const InsuranceDashboard: React.FC = () => {
           </div>
           <p className="text-4xl font-bold mt-3">{pendingClaims}</p>
         </div>
-
       </div>
 
       {/* RECENT RECORDS */}
@@ -186,31 +246,63 @@ const InsuranceDashboard: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="min-w-[750px] w-full text-sm">
-            <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
+          <table className="min-w-[950px] w-full text-sm">
+            <thead className="bg-gray-100 uppercase text-xs text-gray-600">
               <tr>
+                <th className="p-3 text-left w-12">#</th>
                 <th className="p-3 text-left">Provider</th>
-                <th className="p-3 text-left">Insurance ID</th>
-                <th className="p-3 text-left">Patients</th>
+                <th className="p-3 text-left">Plan</th>
+                <th className="p-3 text-left">Policy #</th>
+                <th className="p-3 text-left">Group #</th>
+                <th className="p-3 text-left">Patient</th>
                 <th className="p-3 text-left">Created</th>
               </tr>
             </thead>
 
             <tbody>
               {loading ? (
-                <tr><td colSpan={4} className="p-4 text-center">Loading…</td></tr>
+                <tr>
+                  <td colSpan={7} className="p-4 text-center">
+                    Loading…
+                  </td>
+                </tr>
               ) : latestRecords.length === 0 ? (
-                <tr><td colSpan={4} className="p-4 text-center text-gray-400">No records</td></tr>
+                <tr>
+                  <td colSpan={7} className="p-4 text-center text-gray-400">
+                    No records
+                  </td>
+                </tr>
               ) : (
-                latestRecords.map((ins) => (
+                latestRecords.map((ins, idx) => (
                   <tr
                     key={ins._id}
-                    onClick={() => navigate(`/insurance/record/${ins._id}`)}
-                    className="border-b hover:bg-blue-50 transition cursor-pointer"
+                    onClick={() => setFullView(ins)}
+                    className="border-b hover:bg-blue-50 cursor-pointer transition"
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") setFullView(ins);
+                    }}
                   >
+                    {/* INDEX */}
+                    <td className="p-3">{idx + 1}</td>
+
+                    {/* PROVIDER */}
                     <td className="p-3">{ins.insuranceProvider}</td>
-                    <td className="p-3">{(ins as any).insuranceId}</td>
-                    <td className="p-3">{getPatientNames(ins.patientId)}</td>
+
+                    {/* PLAN NAME */}
+                    <td className="p-3">{ins.planName || "—"}</td>
+
+                    {/* POLICY NUMBER */}
+                    <td className="p-3">{ins.policyNumber || "—"}</td>
+
+                    {/* GROUP NUMBER */}
+                    <td className="p-3">{ins.groupNumber || "—"}</td>
+
+                    {/* PATIENT */}
+                    <td className="p-3">{getPatientName(ins.patientId)}</td>
+
+                    {/* CREATED DATE */}
                     <td className="p-3">{formatDate(ins.createdAt)}</td>
                   </tr>
                 ))
@@ -223,7 +315,26 @@ const InsuranceDashboard: React.FC = () => {
           Showing latest 5 records
         </div>
       </div>
-      
+
+      {/* FULL DATA VIEW MODAL */}
+      {fullView && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white w-[900px] rounded-lg shadow-lg max-h-[95vh] overflow-auto">
+            <InsuranceDetailsFull data={fullView} />
+
+            <div className="p-4 border-t text-right">
+            
+
+              <button
+                className="px-4 py-2 bg-gray-600 text-white rounded"
+                onClick={() => setFullView(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

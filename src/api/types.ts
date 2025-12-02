@@ -1,7 +1,7 @@
-// src/api/types.ts
-export type Role = "employee" | "doctor" | "insurance";
+/* ------------------ ROLES ------------------ */
+export type Role = "employee" | "hospital" | "insurance";
 
-/* ------------------ AUTH ------------------ */
+/* ------------------ AUTH TYPES ------------------ */
 export interface LoginCredentials {
   email: string;
   password: string;
@@ -19,198 +19,89 @@ export interface User {
   name: string;
   email: string;
   role: Role;
+
+  // For hospital users:
+  hospitalProviderData?: HospitalProvider[];
 }
 
-/* ------------------ CLAIM TYPES ------------------ */
-export interface Claim {
-  _id?: string;
-  claimNumber: string;
-  employeeName: string;
-  type: string;
-  amount: number;
-  priority: "urgent" | "high" | "low";
-  riskLevel: "high" | "medium" | "low";
-  aiScore: number;
-  submittedDate: string;
-  status: "pending" | "approved" | "rejected";
-  approvedBy?: string;
-  rejectionReason?: string;
-  paymentDate?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+/* ------------------ HOSPITAL PROVIDER ------------------ */
+export interface HospitalProvider {
+  name: string;
+  providerCode?: string;
+  specialization?: string;
+  isActive?: boolean;
 
-export interface ReadyForClaimItem {
-  patient: {
-    _id: string;
-    fullName: string;
-    age: number;
-    sex: string;
-    birthDate: string;
-    phone: string;
-    email: string;
-    addressLine1: string;
-    addressLine2: string;
-    city: string;
-    state: string;
-    zipCode: string;
-    insuranceId: string;
-    primaryCondition: string;
-    status: string;
-    lastVisit: string | null;
-    nextAppointment: string | null;
-    visibleToEmployee: boolean;
-    visibleToInsurance: boolean;
-    patientWorkflowStatus: string;
-    createdBy: {
-      _id: string;
-      name: string;
-      email: string;
-      role: string;
-    };
-    createdAt: string;
-    updatedAt: string;
-    __v: number;
-  };
+  tiedUpInsurances: boolean;
 
-  insurance: {
-    _id: string;
-    patientId: string[];
-    insuranceProvider: string;
-    planName: string;
-    policyNumber: string;
-    groupNumber: string;
-    insuredName: string;
-    insuredIdNumber: string;
-    insuredDateOfBirth: string;
-    insuredSex: string;
-    insuredRelationship: string;
-    insuredAddressLine1: string;
-    insuredAddressLine2: string;
-    insuredCity: string;
-    insuredState: string;
-    insuredZipCode: string;
-    insuredPhone: string;
-    otherInsuranceExists: boolean;
-    otherInsuranceName: string;
-    otherInsurancePolicyNumber: string;
-    otherInsuranceGroupNumber: string;
-    employmentRelated: boolean;
-    autoAccident: boolean;
-    autoAccidentState: string;
-    otherAccident: boolean;
-    priorAuthorizationNumber: string;
-    outsideLab: boolean;
-    outsideLabCharges: number;
-    hospitalizationFrom: string | null;
-    hospitalizationTo: string | null;
-    insuranceCardFrontBase64: string;
-    insuranceCardBackBase64: string;
-    createdAt: string;
-    updatedAt: string;
-    insuranceId: string;
-    __v: number;
-  };
-
-  latestReport: {
-    _id: string;
+  preAuthorizations?: Array<{
+    authorizationNumber: string;
     patientId: string;
-    reportType: string;
-    primaryDiagnosis: string;
-    secondaryDiagnosis: string[];
-    treatmentProvided: string;
-    medicationsPrescribed: string;
-    labResults: string;
-    recommendations: string;
-    followUpDate: string;
-    referringProviderName: string;
-    referringProviderNPI: string;
-    serviceDateFrom: string;
-    serviceDateTo: string;
-    procedureCodes: {
+    insuranceId: string;
+
+    procedureCodes?: Array<{
       cpt: string;
-      modifier: string;
-      diagnosisPointers: string[];
-      charges: number;
-      units: number;
-      _id: string;
-    }[];
+      units?: number;
+      charges?: number;
+    }>;
+
+    diagnosisCodes?: string[];
+    requestedAmount: number;
+    approvedAmount?: number;
+
+    status: "Pending" | "Approved" | "Rejected";
+    rejectionReason?: string;
+    authorizationDate?: string;
+    validFrom?: string;
+    validTo?: string;
+
     createdBy: string;
-    status: string;
-    createdAt: string;
-    updatedAt: string;
-    __v: number;
-  } | null;
-
-  createdBy: {
-    _id?: string;
-    name?: string;
-    email?: string;
-    role?: string;
-  };
+    notes?: string;
+  }>;
 }
-
 
 /* ------------------ PATIENT TYPES ------------------ */
 export interface Patient {
-  _id?: string;
-
-  fullName: string;
-  age?: number;
-  sex?: "M" | "F" | "U";
-  birthDate?: string | null;
+  _id: string;
+  firstName: string;
+  lastName: string;
+  middleName?: string;
+  gender?: "Male" | "Female" | "Other";
+  dob?: Date;
 
   phone?: string;
   email?: string;
 
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
 
-  insuranceId?: string; // from Insurance auto-generation
+  emergencyContact?: {
+    name: string;
+    relation: string;
+    phone: string;
+  };
 
-  primaryCondition?: string;
+  medicalRecordNumber?: string;
+  patientCode?: string;
 
-  status?: "Active Treatment" | "Follow-up Required" | "Discharged";
+  insurance?: string[]; // list of insurance ObjectIds
 
-  lastVisit?: string | null;
-  nextAppointment?: string | null;
-
-  visibleToEmployee?: boolean;
-  visibleToInsurance?: boolean;
-
-  patientWorkflowStatus?:
-    | "Created"
-    | "ReportSubmitted"
-    | "ReadyForEmployee"
-    | "ReadyForClaim"
-    | "ClaimSubmitted"
-    | "UnderInsuranceReview"
-    | "Approved"
-    | "Rejected";
-
-  createdBy?: {
-    _id?: string;
-    name?: string;
-    role?: string;
-  } | string;
+  metadata?: Record<string, any>;
+  createdBy: string;
 
   createdAt?: string;
   updatedAt?: string;
-}
 
+  // frontend helper
+  fullName?: string;
+}
 
 /* ------------------ MEDICAL REPORT TYPES ------------------ */
-export interface ReportFile {
-  _id?: string;
-  fileName: string;
-  fileType: string;
-  base64Data: string;
-  createdAt?: string;
-}
-
 export interface ProcedureCode {
   cpt: string;
   modifier?: string;
@@ -222,71 +113,203 @@ export interface ProcedureCode {
 export interface MedicalReport {
   _id?: string;
   patientId: string | Patient;
+
   reportType: string;
+
   primaryDiagnosis: string;
   secondaryDiagnosis?: string[];
+
   treatmentProvided: string;
   medicationsPrescribed?: string;
   labResults?: string;
+
   recommendations?: string;
   followUpDate?: string | null;
-  createdBy?: string | { _id?: string; name?: string; email?: string };
-  reportFiles?: ReportFile[];
-  procedureCodes?: ProcedureCode[];
+
   serviceDateFrom?: string | null;
   serviceDateTo?: string | null;
+
   referringProviderName?: string;
   referringProviderNPI?: string;
-  status?: "Submitted" | "Draft" | string;
+
+  createdBy?: string | { _id?: string; name?: string; email?: string };
+  status?: "Submitted" | "Draft";
+
+  procedureCodes?: ProcedureCode[];
+  reportFiles?: Array<{
+    _id?: string;
+    fileName: string;
+    fileType: string;
+    base64Data: string;
+    createdAt?: string;
+  }>;
+
   createdAt?: string;
   updatedAt?: string;
 }
 
 /* ------------------ INSURANCE TYPES ------------------ */
+
+export type PlanType =
+  | "HMO"
+  | "PPO"
+  | "EPO"
+  | "POS"
+  | "INDEMNITY"
+  | "OTHER";
+
+export type InsuranceStatus =
+  | "ACTIVE"
+  | "EXPIRED"
+  | "PENDING"
+  | "CANCELLED";
+
+export interface CoverageLimit {
+  type: string;
+  amount: number;
+  currency?: string;
+  notes?: string;
+}
+
+export interface PolicyHolder {
+  firstName: string;
+  lastName: string;
+  dob?: string;
+  relationToPatient?: string;
+  memberId?: string;
+}
+
+export interface InsuranceDocument {
+  name: string;
+  url: string;
+  uploadedAt?: string;
+  providerDocumentId?: string;
+}
+
 export interface Insurance {
   _id?: string;
 
-  // MUST be array — backend expects patientId: Types.ObjectId[]
-  patientId: string[];
+  insuranceId: string; // your backend sample uses this
+  patientId: Patient;  // *** IMPORTANT: single patient object ***
+
+  policyHolder?: PolicyHolder;
 
   insuranceProvider: string;
   planName?: string;
-  policyNumber?: string;
+  planType?: PlanType;
+  policyNumber: string;
   groupNumber?: string;
 
-  insuredName?: string;
-  insuredIdNumber?: string;
-  insuredDateOfBirth?: string | null;
-  insuredSex?: "M" | "F" | "U";
-  insuredRelationship?: "Self" | "Spouse" | "Child" | "Other";
+  effectiveDate?: string;
+  expirationDate?: string;
 
-  insuredAddressLine1?: string;
-  insuredAddressLine2?: string;
-  insuredCity?: string;
-  insuredState?: string;
-  insuredZipCode?: string;
-  insuredPhone?: string;
+  status: InsuranceStatus;
 
-  otherInsuranceExists?: boolean;
-  otherInsuranceName?: string;
-  otherInsurancePolicyNumber?: string;
-  otherInsuranceGroupNumber?: string;
+  phone?: string;
+  phoneExtension?: string;
 
-  employmentRelated?: boolean;
-  autoAccident?: boolean;
-  autoAccidentState?: string;
-  otherAccident?: boolean;
+  address?: {
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
 
-  priorAuthorizationNumber?: string;
-  outsideLab?: boolean;
-  outsideLabCharges?: number;
+  billingContact?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
 
-  hospitalizationFrom?: string | null;
-  hospitalizationTo?: string | null;
+  primaryInsured?: boolean;
 
-  insuranceCardFrontBase64?: string;
-  insuranceCardBackBase64?: string;
+  coverageLimits?: CoverageLimit[];
+
+  benefitsSummary?: {
+    deductible?: number;
+    outOfPocketMax?: number;
+    coinsurance?: number;
+    copay?: number;
+    currency?: string;
+  };
+
+  documents?: InsuranceDocument[];
+
+  metadata?: Record<string, any>;
 
   createdAt?: string;
   updatedAt?: string;
+}
+
+/* ------------------ CLAIM TYPES (NEW SCHEMA) ------------------ */
+export interface Claim {
+  _id?: string;
+
+  patientId: string;
+  insuranceId: string;
+  medicalReportId: string;
+
+  claimNumber: string;
+  claimStatus: "Pending" | "Submitted" | "Rejected" | "Approved";
+
+  billedAmount: number;
+  approvedAmount?: number;
+
+  submittedBy: string;
+  submittedDate?: string;
+
+  notes?: string;
+
+  createdAt?: string;
+  updatedAt?: string;
+}
+export interface PreAuthorization {
+  _id: string;
+  authorizationNumber: string;
+  patientId: Patient;
+  insuranceId: any;
+  procedureCodes: {
+    cpt: string;
+    units?: number;
+    charges?: number;
+  }[];
+  diagnosisCodes: string[];
+  requestedAmount: number;
+  approvedAmount?: number;
+  status: string;
+  rejectionReason?: string;
+  authorizationDate?: string;
+  validFrom?: string;
+  validTo?: string;
+  createdBy: any;
+  notes?: string;
+
+  providerId: string;
+  providerName: string;
+  providerSpecialization?: string;
+
+  hospitalId: string;
+  hospitalName: string;
+
+  tiedUpInsurances: boolean;
+
+  createdAt?: string;
+  updatedAt?: string;
+}export interface HospitalProviderItem {
+  _id: string;
+  name: string;
+  providerCode: string;
+  specialization: string;
+  isActive: boolean;
+  tiedUpInsurances: boolean;
+}
+
+export interface HospitalProvider {
+  _id: string;
+  name: string;
+  email: string;
+  role: string;
+  hospitalProviderData: HospitalProviderItem[];
 }

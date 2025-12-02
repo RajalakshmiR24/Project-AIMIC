@@ -30,9 +30,9 @@ class AuthService {
     
     // Role-based mock users
     const mockUsers = {
-      'employee@mediclaim.com': { role: 'employee', name: 'John Employee' },
-      'doctor@mediclaim.com': { role: 'doctor', name: 'Dr. Sarah Wilson' },
-      'insurance@mediclaim.com': { role: 'insurance', name: 'Mike Insurance' }
+      'employee@aimic.com': { role: 'employee', name: 'Surendhar' },
+      'hospital@aimic.com': { role: 'hospital', name: 'AIMIC Hospital' },
+      'insurance@aimic.com': { role: 'insurance', name: 'AIMIC Insurance' }
     };
     
     const mockUser = mockUsers[credentials.email as keyof typeof mockUsers];
