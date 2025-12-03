@@ -1,4 +1,4 @@
-// src/contexts/HospitalContext.tsx
+// HospitalContext.tsx
 import React, {
   createContext,
   useContext,
@@ -7,6 +7,7 @@ import React, {
   useState,
   ReactNode,
 } from "react";
+
 import type {
   Patient as PatientType,
   MedicalReport as MedicalReportType,
@@ -14,7 +15,6 @@ import type {
   HospitalProvider as HospitalProviderType,
   PreAuthorization,
 } from "../api/types";
-
 
 import { hospitalApi } from "../api/hospital.api";
 
@@ -67,6 +67,12 @@ export interface HospitalContextShape {
     npi?: string
   ) => Promise<MedicalReportType>;
 
+  /* ---------------- PDF SUPPORT ---------------- */
+  uploadPdfToReport: (reportId: string, file: File) => Promise<any>;
+  deletePdfFromReport: (reportId: string, filename: string) => Promise<any>;
+  getPdfFilesFromReport: (reportId: string) => Promise<any[]>;
+  updatePdfFilesInReport: (reportId: string, files: any[]) => Promise<any>;
+
   fetchHospitalProviders: () => Promise<void>;
   fetchPreAuthorizations: () => Promise<void>;
 }
@@ -82,8 +88,11 @@ export const useHospital = (): HospitalContextShape => {
 export const HospitalProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [patients, setPatients] = useState<PatientType[]>([]);
   const [reports, setReports] = useState<MedicalReportType[]>([]);
-const [hospitalProviders, setHospitalProviders] = useState<HospitalProviderType[]>([]);
-  const [preAuthorizations, setPreAuthorizations] = useState<PreAuthorization[]>([]);
+  const [hospitalProviders, setHospitalProviders] =
+    useState<HospitalProviderType[]>([]);
+  const [preAuthorizations, setPreAuthorizations] = useState<PreAuthorization[]>(
+    []
+  );
 
   const [loadingState, setLoadingState] = useState<LoadingState>({
     patients: false,
@@ -100,6 +109,43 @@ const [hospitalProviders, setHospitalProviders] = useState<HospitalProviderType[
       loadingState.preAuth,
     [loadingState]
   );
+
+  /* ---------------- PDF UTILS ---------------- */
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = String(reader.result).split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const uploadPdfToReport = async (reportId: string, file: File) => {
+    const base64 = await fileToBase64(file);
+    const updated = await hospitalApi.uploadPdf(reportId, file.name, base64);
+    await fetchReports();
+    return updated;
+  };
+
+  const deletePdfFromReport = async (reportId: string, filename: string) => {
+    const updated = await hospitalApi.deletePdf(reportId, filename);
+    await fetchReports();
+    return updated;
+  };
+
+  const getPdfFilesFromReport = async (reportId: string) => {
+    return await hospitalApi.getReportPdfs(reportId);
+  };
+
+  const updatePdfFilesInReport = async (reportId: string, files: any[]) => {
+    const updated = await hospitalApi.updatePdfFiles(reportId, files);
+    await fetchReports();
+    return updated;
+  };
 
   /* ---------------- PATIENT OPERATIONS ---------------- */
 
@@ -177,7 +223,10 @@ const [hospitalProviders, setHospitalProviders] = useState<HospitalProviderType[
     return created;
   };
 
-  const updateReport = async (id: string, payload: Partial<MedicalReportType>) => {
+  const updateReport = async (
+    id: string,
+    payload: Partial<MedicalReportType>
+  ) => {
     const updated = await hospitalApi.updateReport(id, payload);
     await fetchReports();
     return updated;
@@ -286,6 +335,11 @@ const [hospitalProviders, setHospitalProviders] = useState<HospitalProviderType[
         addProcedureToReport,
         updateReportServiceDates,
         addReferringProviderToReport,
+
+        uploadPdfToReport,
+        deletePdfFromReport,
+        getPdfFilesFromReport,
+        updatePdfFilesInReport,
 
         fetchHospitalProviders,
         fetchPreAuthorizations,

@@ -1,8 +1,7 @@
-// src/pages/AllReportsPage.tsx
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { useHospital } from "../../../contexts/HospitalContext";
-import { Eye, FilePlus, RefreshCcw, Search } from "lucide-react";
+import { Eye, FilePlus, RefreshCcw } from "lucide-react";
 
 const AllReportsPage: React.FC = () => {
   const {
@@ -15,6 +14,7 @@ const AllReportsPage: React.FC = () => {
     createReport,
     getReport,
     updateReport,
+    uploadPdfToReport
   } = useHospital();
 
   const [loading, setLoading] = useState(true);
@@ -22,120 +22,34 @@ const AllReportsPage: React.FC = () => {
   const [query, setQuery] = useState("");
   const [providers, setProviders] = useState<any[]>([]);
 
+  /* ---------------- PAGINATION ---------------- */
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 5;
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const formatDate = (d?: string | Date | null) => {
     if (!d) return "-";
     try {
-      return new Date(d).toLocaleDateString();
+      return new Date(d).toLocaleString();
     } catch {
       return String(d);
     }
   };
-
-  /* ---------------------------------------------------------
-     VIEW REPORT MODAL
-  --------------------------------------------------------- */
-  const openViewReportModal = async (id: string) => {
-    const report = await getReport(id);
-    if (!report) return;
-
-    const patient =
-      typeof report.patientId === "object"
-        ? report.patientId
-        : patients.find((p) => p._id === report.patientId);
-
-    Swal.fire({
-      title: `<strong>Report Details</strong>`,
-      width: 900,
-      html: `
-      <div style="text-align:left;font-size:14px;line-height:1.5;">
-        <h3 style="font-weight:600;margin:10px 0 6px;">Patient Information</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          <p><b>Name:</b> ${patient?.fullName || "-"}</p>
-          <p><b>Email:</b> ${patient?.email || "-"}</p>
-          <p><b>Phone:</b> ${patient?.phone || "-"}</p>
-          <p><b>Patient ID:</b> ${patient?._id || "-"}</p>
-        </div>
-
-        <hr style="margin:12px 0" />
-
-        <h3 style="font-weight:600;margin:10px 0 6px;">Report Details</h3>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-          <p><b>Type:</b> ${report.reportType}</p>
-          <p><b>Primary Dx:</b> ${report.primaryDiagnosis}</p>
-          <p><b>Secondary Dx:</b> ${(report.secondaryDiagnosis || []).join(", ")}</p>
-          <p><b>Treatment:</b> ${report.treatmentProvided}</p>
-          <p><b>Medications:</b> ${report.medicationsPrescribed}</p>
-          <p><b>Lab Results:</b> ${report.labResults}</p>
-          <p><b>Recommendations:</b> ${report.recommendations}</p>
-          <p><b>Follow Up:</b> ${formatDate(report.followUpDate)}</p>
-          <p><b>Service From:</b> ${formatDate(report.serviceDateFrom)}</p>
-          <p><b>To:</b> ${formatDate(report.serviceDateTo)}</p>
-          <p><b>Status:</b> ${report.status}</p>
-          <p><b>Created At:</b> ${formatDate(report.createdAt)}</p>
-
-          ${
-            report.createdBy && typeof report.createdBy === "object"
-              ? `<p><b>Created By:</b> ${report.createdBy.name} (${report.createdBy.email})</p>`
-              : `<p><b>Created By:</b> -</p>`
-          }
-        </div>
-
-        <hr style="margin:12px 0" />
-        <h3 style="font-weight:600;margin:10px 0 6px;">Procedures</h3>
-
-        ${
-          report.procedureCodes?.length
-            ? `
-              <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                <thead>
-                  <tr>
-                    <th style="text-align:left;border-bottom:1px solid #ddd;padding:6px;">CPT</th>
-                    <th style="text-align:left;border-bottom:1px solid #ddd;padding:6px;">Modifier</th>
-                    <th style="text-align:left;border-bottom:1px solid #ddd;padding:6px;">Dx Pointers</th>
-                    <th style="text-align:right;border-bottom:1px solid #ddd;padding:6px;">Charges</th>
-                    <th style="text-align:right;border-bottom:1px solid #ddd;padding:6px;">Units</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${report.procedureCodes
-                    .map(
-                      (pc: any) => `
-                        <tr>
-                          <td style="padding:6px;">${pc.cpt}</td>
-                          <td style="padding:6px;">${pc.modifier}</td>
-                          <td style="padding:6px;">${(pc.diagnosisPointers || []).join(", ")}</td>
-                          <td style="padding:6px;text-align:right;">${pc.charges}</td>
-                          <td style="padding:6px;text-align:right;">${pc.units}</td>
-                        </tr>`
-                    )
-                    .join("")}
-                </tbody>
-              </table>`
-            : `<p style="color:gray">No procedures added</p>`
-        }
-      </div>
-    `,
-      confirmButtonText: "Close",
-      showCloseButton: true,
-    });
-  };
-
-  /* ---------------------------------------------------------
-     ADD / EDIT REPORT MODAL
-  --------------------------------------------------------- */
+  
   const openReportFormModal = (existing?: any) => {
     const patientOptions = patients
       .map(
         (p: any) =>
-          `<option value="${p._id}">${p.firstName} ${p.lastName} — ${p.email}</option>`
+          `<option value="${p._id}">${p.firstName || ""} ${p.lastName || ""} — ${p.email || "-"}</option>`
       )
       .join("");
 
     const providerOptions = providers
       .map(
         (p) =>
-          `<option value="${p._id}" data-name="${p.name}" data-npi="${p.providerCode}">
-             ${p.name} — ${p.providerCode}
+          `<option value="${p._id}" data-name="${p.name || ""}" data-npi="${p.providerCode || ""}">
+             ${p.name || ""} — ${p.providerCode || ""}
            </option>`
       )
       .join("");
@@ -279,8 +193,8 @@ const AllReportsPage: React.FC = () => {
 
         provSelect.addEventListener("change", () => {
           const opt = provSelect.selectedOptions[0];
-          refName.value = opt.dataset.name || "";
-          refCode.value = opt.dataset.npi || "";
+          refName.value = opt?.dataset?.name || "";
+          refCode.value = opt?.dataset?.npi || "";
         });
 
         const pcContainer = document.getElementById("pcContainer") as HTMLElement;
@@ -310,7 +224,7 @@ const AllReportsPage: React.FC = () => {
 
         if (existing) {
           (document.getElementById("r1") as HTMLSelectElement).value =
-            existing.patientId?._id || existing.patientId;
+            existing.patientId?._id || existing.patientId || "";
 
           (document.getElementById("r2") as HTMLSelectElement).value =
             existing.reportType || "";
@@ -349,11 +263,17 @@ const AllReportsPage: React.FC = () => {
             existing.referringProviderNPI || "";
 
           const matchProv = providers.find(
-            (p) => p.providerCode === existing.referringProviderNPI
+            (p) =>
+              p.providerCode === existing.referringProviderNPI ||
+              p._id === existing.providerId
           );
           if (matchProv) {
             (document.getElementById("prov") as HTMLSelectElement).value =
               matchProv._id;
+            (document.getElementById("r12") as HTMLInputElement).value =
+              matchProv.name || existing.referringProviderName || "";
+            (document.getElementById("r13") as HTMLInputElement).value =
+              matchProv.providerCode || existing.referringProviderNPI || "";
           }
 
           (document.getElementById("r14") as HTMLSelectElement).value =
@@ -450,7 +370,114 @@ const AllReportsPage: React.FC = () => {
   };
 
   /* ---------------------------------------------------------
-     SEARCH FUNCTION
+     UPLOAD PDF HANDLER
+  --------------------------------------------------------- */
+  const handleUploadPdf = async (reportId: string) => {
+    const { value: file } = await Swal.fire({
+      title: "Upload PDF Document",
+      input: "file",
+      inputAttributes: { accept: "application/pdf" },
+      confirmButtonText: "Upload",
+      showCancelButton: true,
+    });
+
+    if (!file) return;
+
+    try {
+      await uploadPdfToReport(reportId, file);
+      Swal.fire("Uploaded", "PDF uploaded successfully", "success");
+    } catch {
+      Swal.fire("Error", "Upload failed", "error");
+    }
+  };
+
+  /* ---------------------------------------------------------
+     VIEW REPORT MODAL
+  --------------------------------------------------------- */
+  const openViewReportModal = async (id: string) => {
+    const report = await getReport(id);
+    if (!report) return;
+
+    const patient =
+      typeof report.patientId === "object"
+        ? report.patientId
+        : patients.find((p) => p._id === report.patientId);
+
+    const procHtml = report.procedureCodes?.length
+      ? `<table style="width:100%;border-collapse:collapse;font-size:13px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:6px;">CPT</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:6px;">Modifier</th>
+              <th style="text-align:left;border-bottom:1px solid #ddd;padding:6px;">Dx Pointers</th>
+              <th style="text-align:right;border-bottom:1px solid #ddd;padding:6px;">Charges</th>
+              <th style="text-align:right;border-bottom:1px solid #ddd;padding:6px;">Units</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${report.procedureCodes
+              .map(
+                (pc: any) => `
+                <tr>
+                  <td style="padding:6px;">${pc.cpt || "-"}</td>
+                  <td style="padding:6px;">${pc.modifier || "-"}</td>
+                  <td style="padding:6px;">${(pc.diagnosisPointers || []).join(", ") || "-"}</td>
+                  <td style="padding:6px;text-align:right;">${pc.charges ?? "-"}</td>
+                  <td style="padding:6px;text-align:right;">${pc.units ?? "-"}</td>
+                </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>`
+      : `<p style="color:gray">No procedures added</p>`;
+
+    Swal.fire({
+      title: `<strong>Report Details</strong>`,
+      width: 950,
+      html: `
+      <div style="text-align:left;font-size:14px;line-height:1.5;">
+
+        <h3 style="font-weight:600;margin:10px 0 6px;">Patient Information</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <p><b>Name:</b> ${patient?.fullName || `${patient?.firstName || ""} ${patient?.lastName || ""}`}</p>
+          <p><b>Email:</b> ${patient?.email || "-"}</p>
+          <p><b>Phone:</b> ${patient?.phone || "-"}</p>
+          <p><b>Patient ID:</b> ${patient?._id || "-"}</p>
+        </div>
+
+        <hr style="margin:12px 0" />
+
+        <h3 style="font-weight:600;margin:10px 0 6px;">Report Details</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <p><b>Type:</b> ${report.reportType || "-"}</p>
+          <p><b>Primary Dx:</b> ${report.primaryDiagnosis || "-"}</p>
+          <p><b>Secondary Dx:</b> ${(report.secondaryDiagnosis || []).join(", ")}</p>
+          <p><b>Treatment:</b> ${report.treatmentProvided || "-"}</p>
+          <p><b>Medications:</b> ${report.medicationsPrescribed || "-"}</p>
+          <p><b>Lab Results:</b> ${report.labResults || "-"}</p>
+          <p><b>Recommendations:</b> ${report.recommendations || "-"}</p>
+          <p><b>Follow Up:</b> ${formatDate(report.followUpDate)}</p>
+          <p><b>Service From:</b> ${formatDate(report.serviceDateFrom)}</p>
+          <p><b>Service To:</b> ${formatDate(report.serviceDateTo)}</p>
+          <p><b>Status:</b> ${report.status || "-"}</p>
+          <p><b>Created At:</b> ${formatDate(report.createdAt)}</p>
+          <p><b>Updated At:</b> ${formatDate(report.updatedAt)}</p>
+          <p><b>Referring Provider:</b> ${report.referringProviderName || "-"}</p>
+          <p><b>Provider Code:</b> ${report.referringProviderNPI || "-"}</p>
+        </div>
+
+        <hr style="margin:12px 0" />
+        <h3 style="font-weight:600;margin:10px 0 6px;">Procedures</h3>
+        ${procHtml}
+      </div>
+    `,
+      confirmButtonText: "Close",
+      showCloseButton: true,
+    });
+  };
+
+  /* ---------------------------------------------------------
+     SEARCH
   --------------------------------------------------------- */
   const handleSearch = () => {
     const q = query.toLowerCase();
@@ -464,12 +491,20 @@ const AllReportsPage: React.FC = () => {
       return (
         (r.reportType || "").toLowerCase().includes(q) ||
         (r.primaryDiagnosis || "").toLowerCase().includes(q) ||
-        (patient?.fullName || "").toLowerCase().includes(q) ||
-        (patient?.email || "").toLowerCase().includes(q)
+        (r.treatmentProvided || "").toLowerCase().includes(q) ||
+        (patient?.fullName ||
+          `${patient?.firstName || ""} ${patient?.lastName || ""}` ||
+          ""
+        )
+          .toLowerCase()
+          .includes(q) ||
+        (patient?.email || "").toLowerCase().includes(q) ||
+        (r.referringProviderName || "").toLowerCase().includes(q)
       );
     });
 
     setFiltered(f);
+    setPage(1);
   };
 
   /* ---------------------------------------------------------
@@ -481,8 +516,11 @@ const AllReportsPage: React.FC = () => {
       await fetchReports();
       await fetchHospitalProviders();
 
-      if (hospitalProviders?.length > 0) {
-        setProviders(hospitalProviders[0].hospitalProviderData || []);
+      if (Array.isArray(hospitalProviders) && hospitalProviders.length > 0) {
+        const hp = hospitalProviders[0];
+        if (hp && Array.isArray(hp.hospitalProviderData)) {
+          setProviders(hp.hospitalProviderData || []);
+        }
       }
 
       setLoading(false);
@@ -490,120 +528,195 @@ const AllReportsPage: React.FC = () => {
     load();
   }, []);
 
-  useEffect(() => {
-    if (hospitalProviders?.length > 0) {
-      setProviders(hospitalProviders[0].hospitalProviderData || []);
-    }
-  }, [hospitalProviders]);
-
-  useEffect(() => {
-    setFiltered(reports);
-  }, [reports]);
-
-  useEffect(() => {
-    handleSearch();
-  }, [query]);
+  useEffect(() => setFiltered(reports), [reports]);
+  useEffect(() => handleSearch(), [query]);
 
   return (
     <div className="w-full space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-        <h1 className="text-2xl font-semibold">All Medical Reports</h1>
+<div className="w-full flex flex-wrap items-center justify-between gap-3 bg-white p-3 border rounded-xl">
+  <div className="flex items-center gap-3">
+    <h1 className="text-2xl font-semibold whitespace-nowrap">All Medical Reports</h1>
+  </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={async () => {
-              setLoading(true);
-              await fetchReports();
-              setLoading(false);
-              handleSearch();
-            }}
-            className="px-3 py-2 bg-gray-200 rounded-lg flex items-center gap-2"
-          >
-            <RefreshCcw size={16} /> Refresh
-          </button>
+  <div className="flex items-center gap-2">
+    <input
+      className="w-52 sm:w-72 md:w-96 outline-none text-sm border p-2 rounded-lg"
+      placeholder="Search by patient, diagnosis, report type…"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+    />
+    <button onClick={handleSearch} className="px-4 py-2 bg-gray-800 text-white rounded-lg">
+      Search
+    </button>
+  </div>
 
-          <button
-            onClick={() => openReportFormModal()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
-          >
-            <FilePlus size={18} /> Add Report
-          </button>
-        </div>
-      </div>
+  <div className="flex items-center gap-2">
+    <button
+      onClick={async () => {
+        setLoading(true);
+        await fetchReports();
+        setLoading(false);
+        handleSearch();
+      }}
+      className="px-3 py-2 bg-gray-200 rounded-lg flex items-center gap-2"
+    >
+      <RefreshCcw size={16} /> Refresh
+    </button>
 
-      <div className="flex gap-2 items-center bg-white p-3 border rounded-xl">
-        <Search size={18} className="text-gray-500" />
-        <input
-          className="w-full outline-none text-sm"
-          placeholder="Search by patient, diagnosis, report type…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <button
-          onClick={handleSearch}
-          className="px-4 py-2 bg-gray-800 text-white rounded-lg"
-        >
-          Search
-        </button>
-      </div>
+    <button
+      onClick={() => openReportFormModal()}
+      className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
+    >
+      <FilePlus size={18} /> Add Report
+    </button>
+  </div>
+</div>
+
 
       <div className="w-full overflow-x-auto rounded-xl border bg-white shadow-sm">
         {loading ? (
           <p className="p-5 text-center">Loading...</p>
         ) : (
-          <table className="min-w-max w-full text-sm">
-            <thead className="bg-gray-100 hidden md:table-header-group">
-              <tr>
-                <th className="p-3 text-left">Patient</th>
-                <th className="p-3 text-left">Report Type</th>
-                <th className="p-3 text-left">Primary Dx</th>
-                <th className="p-3 text-left">Medications</th>
-                <th className="p-3 text-left">Status</th>
-                <th className="p-3 text-left">Created</th>
-                <th className="p-3 text-right">Actions</th>
-              </tr>
-            </thead>
+          <>
+            <table className="min-w-max w-full text-sm">
+              <thead className="bg-gray-100 hidden md:table-header-group">
+                <tr>
+                  <th className="p-3 text-left">#</th>
+                  <th className="p-3 text-left">Patient</th>
+                  <th className="p-3 text-left">Report Type</th>
+                  <th className="p-3 text-left">Provider</th>
+                  <th className="p-3 text-left">Service Dates</th>
+                  <th className="p-3 text-left">Procedures</th>
+                  <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-left">Created</th>
+                  <th className="p-3 text-right">Actions</th>
+                </tr>
+              </thead>
 
-            <tbody>
-              {filtered.map((r: any) => {
-                const patient =
-                  typeof r.patientId === "object"
-                    ? r.patientId
-                    : patients.find((p) => p._id === r.patientId);
+              <tbody>
+                {paginated.map((r: any, index: number) => {
+                  const patient =
+                    typeof r.patientId === "object"
+                      ? r.patientId
+                      : patients.find((p) => p._id === r.patientId);
 
-                return (
-                  <tr key={r._id} className="border-t hover:bg-gray-50">
-                    <td className="p-3">
-                      <div className="font-medium">{patient?.fullName || "Unknown"}</div>
-                      <div className="text-xs text-gray-500">{patient?.email}</div>
-                    </td>
+                  const procSummary = (r.procedureCodes || [])
+                    .map((p: any) => `${p.cpt} (${p.units}u / ${p.charges})`)
+                    .join(" • ");
 
-                    <td className="p-3">{r.reportType}</td>
-                    <td className="p-3">{r.primaryDiagnosis}</td>
-                    <td className="p-3">{r.medicationsPrescribed || "-"}</td>
-                    <td className="p-3">{r.status || "-"}</td>
-                    <td className="p-3">{formatDate(r.createdAt)}</td>
+                  return (
+                    <tr key={r._id} className="border-t hover:bg-gray-50">
+                      <td className="p-3 font-semibold">
+                        {(page - 1) * PAGE_SIZE + index + 1}
+                      </td>
 
-                    <td className="p-3 text-right space-x-2">
-                      <button
-                        onClick={() => openViewReportModal(r._id)}
-                        className="p-2 bg-gray-100 rounded-lg"
-                      >
-                        <Eye size={16} />
-                      </button>
+                      <td className="p-3">
+                        <div className="font-medium">
+                          {patient?.fullName ||
+                            `${patient?.firstName || ""} ${
+                              patient?.lastName || ""
+                            }`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {patient?.email}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Phone: {patient?.phone}
+                        </div>
+                      </td>
 
-                      <button
-                        onClick={() => openReportFormModal(r)}
-                        className="p-2 bg-blue-100 rounded-lg"
-                      >
-                        ✏️
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      <td className="p-3">{r.reportType}</td>
+
+                      <td className="p-3">
+                        <div className="font-medium">
+                          {r.referringProviderName}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {r.referringProviderNPI}
+                        </div>
+                      </td>
+
+                      <td className="p-3 text-xs">
+                        <div>{formatDate(r.serviceDateFrom)}</div>
+                        <div>to {formatDate(r.serviceDateTo)}</div>
+                        <div>
+                          Follow-up: {formatDate(r.followUpDate)}
+                        </div>
+                      </td>
+
+                      <td className="p-3">
+                        <div className="text-xs">
+                          {procSummary || "—"}
+                        </div>
+                      </td>
+
+                      <td className="p-3">{r.status}</td>
+                      <td className="p-3">{formatDate(r.createdAt)}</td>
+
+                      <td className="p-3 text-right space-x-2 flex justify-end">
+                        <button
+                          onClick={() => openViewReportModal(r._id)}
+                          className="p-2 bg-gray-100 rounded-lg"
+                          title="View"
+                        >
+                          <Eye size={16} />
+                        </button>
+
+                        <button
+                          onClick={() => openReportFormModal(r)}
+                          className="p-2 bg-blue-100 rounded-lg"
+                          title="Edit"
+                        >
+                          ✏️
+                        </button>
+
+                        <button
+                          onClick={() => handleUploadPdf(r._id)}
+                          className="p-2 bg-green-100 rounded-lg"
+                          title="Upload PDF"
+                        >
+                          📄
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+
+            {/* PAGINATION FOOTER */}
+            <div className="flex justify-between items-center p-4 text-sm">
+              <div>
+                Page {page} of {totalPages}
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className={`px-3 py-2 rounded-lg ${
+                    page === 1
+                      ? "bg-gray-200 text-gray-400"
+                      : "bg-gray-800 text-white"
+                  }`}
+                >
+                  Prev
+                </button>
+
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className={`px-3 py-2 rounded-lg ${
+                    page === totalPages
+                      ? "bg-gray-200 text-gray-400"
+                      : "bg-gray-800 text-white"
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

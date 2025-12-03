@@ -136,17 +136,17 @@ export interface MedicalReport {
   status?: "Submitted" | "Draft";
 
   procedureCodes?: ProcedureCode[];
-  reportFiles?: Array<{
-    _id?: string;
-    fileName: string;
-    fileType: string;
-    base64Data: string;
-    createdAt?: string;
+
+  /** UPDATED — backend format */
+  pdfFiles?: Array<{
+    filename: string;
+    data: string; // base64
   }>;
 
   createdAt?: string;
   updatedAt?: string;
 }
+
 
 /* ------------------ INSURANCE TYPES ------------------ */
 

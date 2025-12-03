@@ -5,7 +5,9 @@ import HospitalDashboard from "../Pages/Hospital/HospitalDashboard";
 import PatientManagement from "../Pages/Hospital/PatientManagement";
 import AllReportsPage from "../Pages/Hospital/AllReportsPage";
 import AllClaimsPage from "../Pages/Hospital/AllClaimsPage";
-import { Home, Users, FileText, FileCheck } from "lucide-react";
+import ProvidersAndPreAuths from "../Pages/Hospital/ProvidersAndPreAuths";
+
+import { Home, Users, FileText, FileCheck, UserCog } from "lucide-react";
 
 const HospitalPortal: React.FC = () => {
   const location = useLocation();
@@ -15,6 +17,7 @@ const HospitalPortal: React.FC = () => {
     { icon: <Users className="w-5 h-5" />, label: "Patients", path: "/hospital/patients" },
     { icon: <FileText className="w-5 h-5" />, label: "All Reports", path: "/hospital/reports" },
     { icon: <FileCheck className="w-5 h-5" />, label: "All Claims", path: "/hospital/claims" },
+    { icon: <UserCog className="w-5 h-5" />, label: "All Providers", path: "/hospital/providers" },
   ];
 
   return (
@@ -29,6 +32,7 @@ const HospitalPortal: React.FC = () => {
         <Route path="/patients" element={<PatientManagement />} />
         <Route path="/reports" element={<AllReportsPage />} />
         <Route path="/claims" element={<AllClaimsPage />} />
+        <Route path="/providers" element={<ProvidersAndPreAuths />} />
       </Routes>
     </PortalLayout>
   );

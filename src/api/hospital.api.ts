@@ -1,4 +1,4 @@
-// src/api/hospital.api.ts
+// hospital.api.ts
 import { axiosInstance } from "./axiosInstance";
 import {
   Patient,
@@ -126,6 +126,35 @@ export const hospitalApi = {
 
   async getAllPreAuthorizations(): Promise<PreAuthorization[]> {
     const res = await axiosInstance.get("/api/reports/pre-authorizations/all");
+    return res.data.data;
+  },
+
+  /* ---------------- PDF UPLOAD / DELETE / GET / UPDATE ---------------- */
+
+  async uploadPdf(reportId: string, filename: string, base64: string) {
+    const res = await axiosInstance.post(`/api/reports/pdf/${reportId}`, {
+      filename,
+      base64,
+    });
+    return res.data.data;
+  },
+
+  async deletePdf(reportId: string, filename: string) {
+    const res = await axiosInstance.delete(`/api/reports/pdf/${reportId}`, {
+      data: { filename },
+    });
+    return res.data.data;
+  },
+
+  async getReportPdfs(reportId: string) {
+    const res = await axiosInstance.get(`/api/reports/pdf/${reportId}`);
+    return res.data.data;
+  },
+
+  async updatePdfFiles(reportId: string, pdfFiles: any[]) {
+    const res = await axiosInstance.put(`/api/reports/pdf/${reportId}`, {
+      pdfFiles,
+    });
     return res.data.data;
   },
 };
