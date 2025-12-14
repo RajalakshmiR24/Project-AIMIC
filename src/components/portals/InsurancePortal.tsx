@@ -15,14 +15,24 @@ const InsurancePortal = () => {
   const location = useLocation();
 
   const menuItems = [
-    { icon: <Home className="w-5 h-5" />, label: "Dashboard", path: "/insurance" },
-    { icon: <Home className="w-5 h-5" />, label: "Insurance Records", path: "/insurance/records" },
+    {
+      icon: <Home className="w-5 h-5" />,
+      label: "Dashboard",
+      path: "/insurance",
+    },
+    {
+      icon: <Home className="w-5 h-5" />,
+      label: "Insurance Records",
+      path: "/insurance/records",
+    },
     {
       icon: <ListChecks className="w-5 h-5" />,
-      label: "All Claims",
+      label: "Claims",
       path: "/insurance/claims/review",
       children: [
-        { label: "Approved Claims", path: "/insurance/claims/approved" }
+        { label: "Review Claims", path: "/insurance/claims/review" },
+        { label: "Approved Claims", path: "/insurance/claims/approved" },
+        { label: "All Claims", path: "/insurance/claims/all" },
       ],
     },
   ];
@@ -35,18 +45,18 @@ const InsurancePortal = () => {
       headerColor="bg-green-600"
     >
       <Routes>
-        <Route path="/" element={<InsuranceDashboard />} />
-        <Route path="/records" element={<InsuranceRecords />} />
+        {/* Dashboard */}
+        <Route index element={<InsuranceDashboard />} />
 
-        {/* All Claims Main Page */}
-        <Route path="/claims" element={<AllClaimsPage />} />
+        {/* Records */}
+        <Route path="records" element={<InsuranceRecords />} />
 
-        {/* Subtabs */}
-        <Route path="/claims/review" element={<ReviewClaims />} />
-        <Route path="/claims/review/:id" element={<ClaimReviewPage />} />
-        <Route path="/claims/approved" element={<ApprovedClaims />} />
-        <Route path="/claims/all" element={<AllClaimsList />} />
-
+        {/* Claims */}
+        <Route path="claims" element={<AllClaimsPage />} />
+        <Route path="claims/review" element={<ReviewClaims />} />
+        <Route path="claims/review/:id" element={<ClaimReviewPage />} />
+        <Route path="claims/approved" element={<ApprovedClaims />} />
+        <Route path="claims/all" element={<AllClaimsList />} />
       </Routes>
     </PortalLayout>
   );

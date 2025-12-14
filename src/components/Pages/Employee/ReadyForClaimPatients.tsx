@@ -1,431 +1,204 @@
+// ReadyForClaimPatients.tsx — WITH REFRESH BUTTON
+
 import React, { useEffect, useState } from "react";
 import { employeeApi } from "../../../api/employee.api";
-import { useClaims } from "../../../contexts/ClaimsContext";
-import { Loader2, ClipboardList, DollarSign, Eye } from "lucide-react";
+import { Loader2, ClipboardList, Eye, RefreshCcw } from "lucide-react";
 import Swal from "sweetalert2";
-import { ReadyForClaimItem } from "../../../api/types";
 
-// ----------------------------------------------------
-// CLAIM REVIEW MODAL
-// ----------------------------------------------------
-const ClaimReviewModal: React.FC<{
-  claim: any;
-  insurance: any;
-  report: any;
-  onClose: () => void;
-}> = ({ claim, insurance, report, onClose }) => {
-  const [activeTab, setActiveTab] = useState<
-    "Patient" | "Insurance" | "Report" | "Attachments"
-  >("Patient");
+const ClaimReviewModal = ({ item, onClose }: any) => {
+  const [tab, setTab] = useState<"Patient" | "Insurance" | "Report">("Patient");
 
-  const TABS = ["Patient", "Insurance", "Report", "Attachments"] as const;
-  const patient = claim.patientId;
+  const patient = item.patientId;
+  const insurance = item.insuranceId;
+  const report = item;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">Claim Review</h2>
-        <button onClick={onClose} className="px-3 py-1 border rounded text-sm">
+    <div className="p-6 space-y-5">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Medical Report Details</h2>
+        <button onClick={onClose} className="border px-3 py-1 rounded text-sm">
           Close
         </button>
       </div>
 
-      <div className="border-b flex gap-6">
-        {TABS.map((tab) => (
+      <div className="flex gap-6 border-b">
+        {["Patient", "Insurance", "Report"].map((t) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={t}
+            onClick={() => setTab(t as any)}
             className={`pb-2 text-sm font-medium ${
-              activeTab === tab
+              tab === t
                 ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-gray-500"
             }`}
           >
-            {tab}
+            {t}
           </button>
         ))}
       </div>
 
-      {/* PATIENT TAB */}
-      {activeTab === "Patient" && (
-        <div className="grid md:grid-cols-2 gap-4 mt-4">
-          <div className="p-4 bg-gray-100 rounded text-sm space-y-1">
-            <h3 className="font-medium">Patient Info</h3>
-            <div><strong>Name:</strong> {patient.fullName}</div>
-            <div><strong>Age:</strong> {patient.age}</div>
-            <div><strong>Sex:</strong> {patient.sex}</div>
-            <div><strong>Phone:</strong> {patient.phone}</div>
-            <div><strong>Email:</strong> {patient.email}</div>
-            <div><strong>Condition:</strong> {patient.primaryCondition}</div>
-            <div>
-              <strong>Address:</strong> {patient.addressLine1}, {patient.city}
-            </div>
-          </div>
-
-          <div className="p-4 bg-gray-100 rounded text-sm space-y-1">
-            <h3 className="font-medium">Claim Summary</h3>
-            <div><strong>Claim #:</strong> {claim.claimNumber}</div>
-            <div><strong>Status:</strong> {claim.claimStatus}</div>
-            <div><strong>Billed:</strong> ₹{claim.billedAmount}</div>
-            <div><strong>Approved:</strong> ₹{claim.approvedAmount ?? "—"}</div>
-            <div>
-              <strong>Submitted:</strong>{" "}
-              {claim.submittedDate
-                ? new Date(claim.submittedDate).toLocaleString()
-                : "—"}
-            </div>
-            <div><strong>Notes:</strong> {claim.notes || "—"}</div>
+      {tab === "Patient" && (
+        <div className="bg-gray-100 p-4 rounded text-sm space-y-1">
+          <div><b>Name:</b> {patient.firstName} {patient.lastName}</div>
+          <div><b>Gender:</b> {patient.gender}</div>
+          <div><b>Email:</b> {patient.email}</div>
+          <div><b>Phone:</b> {patient.phone}</div>
+          <div>
+            <b>Address:</b> {patient.address?.line1}, {patient.address?.city}
           </div>
         </div>
       )}
 
-      {/* INSURANCE TAB */}
-      {activeTab === "Insurance" && (
-        <div className="p-4 bg-gray-100 rounded text-sm space-y-2 mt-4">
-          <div><strong>Provider:</strong> {insurance.insuranceProvider}</div>
-          <div><strong>Plan:</strong> {insurance.planName}</div>
-          <div><strong>Policy #:</strong> {insurance.policyNumber}</div>
-          <div><strong>Group #:</strong> {insurance.groupNumber}</div>
-          <div>
-            <strong>Prior Auth:</strong> {insurance.priorAuthorizationNumber}
-          </div>
-
-          <div className="mt-3 flex gap-4">
-            {insurance.insuranceCardFrontBase64 && (
-              <a
-                href={`data:application/pdf;base64,${insurance.insuranceCardFrontBase64}`}
-                target="_blank"
-                className="text-blue-600 underline"
-              >
-                View Card Front
-              </a>
-            )}
-
-            {insurance.insuranceCardBackBase64 && (
-              <a
-                href={`data:application/pdf;base64,${insurance.insuranceCardBackBase64}`}
-                target="_blank"
-                className="text-blue-600 underline"
-              >
-                View Card Back
-              </a>
-            )}
-          </div>
+      {tab === "Insurance" && (
+        <div className="bg-gray-100 p-4 rounded text-sm space-y-1">
+          {insurance ? (
+            <>
+              <div><b>Provider:</b> {insurance.insuranceProvider}</div>
+              <div><b>Plan:</b> {insurance.planName}</div>
+              <div><b>Policy #:</b> {insurance.policyNumber}</div>
+              <div><b>Group #:</b> {insurance.groupNumber}</div>
+              <div><b>Status:</b> {insurance.status}</div>
+            </>
+          ) : (
+            <div className="text-gray-400">No insurance linked</div>
+          )}
         </div>
       )}
 
-      {/* REPORT TAB */}
-      {activeTab === "Report" && (
-        <div className="p-4 bg-gray-100 rounded text-sm space-y-2 mt-4">
-          <div><strong>Type:</strong> {report.reportType}</div>
-          <div><strong>Primary Diagnosis:</strong> {report.primaryDiagnosis}</div>
-          <div>
-            <strong>Secondary:</strong> {report.secondaryDiagnosis?.join(", ")}
-          </div>
-          <div><strong>Treatment:</strong> {report.treatmentProvided}</div>
-          <div><strong>Medications:</strong> {report.medicationsPrescribed}</div>
-          <div><strong>Lab Results:</strong> {report.labResults}</div>
-          <div><strong>Recommendations:</strong> {report.recommendations}</div>
+      {tab === "Report" && (
+        <div className="bg-gray-100 p-4 rounded text-sm space-y-1">
+          <div><b>Type:</b> {report.reportType}</div>
+          <div><b>Diagnosis:</b> {report.primaryDiagnosis}</div>
+          <div><b>Treatment:</b> {report.treatmentProvided}</div>
 
-          <div>
-            <strong>Service Dates:</strong> {report.serviceDateFrom} →{" "}
-            {report.serviceDateTo}
-          </div>
-
-          <div className="mt-3">
-            <strong>Procedures:</strong>
-            {report.procedureCodes?.map((pc: any, i: number) => (
-              <div key={i} className="ml-3">
-                • CPT {pc.cpt} — ₹{pc.charges} ({pc.units} unit)
+          <div className="mt-2">
+            <b>Procedures:</b>
+            {report.procedureCodes?.map((p: any) => (
+              <div key={p._id}>
+                • {p.cpt} — ₹{p.charges} ({p.units})
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* ATTACHMENTS TAB */}
-      {activeTab === "Attachments" && (
-        <div className="p-4 bg-gray-100 rounded text-sm mt-4 space-y-2">
-          {claim.attachments?.length ? (
-            claim.attachments.map((a: any, i: number) => (
-              <div key={i}>
-                <strong>{a.fileName}</strong>
-                <a
-                  href={`data:${a.fileType};base64,${a.fileBase64}`}
-                  target="_blank"
-                  className="text-blue-600 underline ml-3"
-                >
-                  View
-                </a>
-              </div>
-            ))
-          ) : (
-            <div>No attachments found.</div>
-          )}
         </div>
       )}
     </div>
   );
 };
 
-// ----------------------------------------------------
-// MAIN READY-FOR-CLAIM PAGE
-// ----------------------------------------------------
 const ReadyForClaimPatients: React.FC = () => {
-  const [items, setItems] = useState<ReadyForClaimItem[]>([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [modalData, setModalData] = useState<any | null>(null);
-
-  const { createClaim } = useClaims();
+  const [activeItem, setActiveItem] = useState<any | null>(null);
 
   useEffect(() => {
-    loadPatients();
+    fetchData();
   }, []);
 
-  const loadPatients = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    setError(null);
-
     try {
-      const list = await employeeApi.getPatientsReadyForClaim();
-      setItems(list || []);
-    } catch (err: any) {
-      setError(err?.message || "Failed to fetch patients");
+      const res = await employeeApi.getPatientsReadyForClaim();
+      setItems(res || []);
+    } catch {
+      Swal.fire("Error", "Failed to load data", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateClaim = async (item: ReadyForClaimItem) => {
-    try {
-      Swal.fire({
-        title: "Creating claim...",
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading(),
-      });
-
-      const billedAmount =
-        item.latestReport?.procedureCodes?.reduce(
-          (sum, p) => sum + (p.charges || 0),
-          0
-        ) || 0;
-
-      const payload = {
-        patientId: item.patient._id!,
-        insuranceId: item.insurance!.insuranceId,
-        medicalReportId: item.latestReport!._id,
-        billedAmount,
-        approvedAmount: 0,
-        notes: "",
-        attachments: [],
-      };
-
-      const created = await createClaim(payload);
-
-      setItems((prev) =>
-        prev.filter((i) => i.patient._id !== item.patient._id)
-      );
-
-      Swal.close();
-
-      setModalData({
-        claim: {
-          ...created,
-          patientId: item.patient,
-          medicalReportId: item.latestReport,
-          insuranceId: item.insurance,
-          billedAmount,
-          attachments: [],
-        },
-        insurance: item.insurance,
-        report: item.latestReport,
-      });
-    } catch (err: any) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err?.message || "Unable to create claim",
-      });
-    }
-  };
-
-  const handleViewDetails = (item: ReadyForClaimItem) => {
-    setModalData({
-      claim: {
-        claimNumber: "N/A",
-        claimStatus: "Draft",
-        billedAmount:
-          item.latestReport?.procedureCodes?.reduce(
-            (sum, p) => sum + (p.charges || 0),
-            0
-          ) || 0,
-        approvedAmount: 0,
-        notes: "",
-        submittedDate: new Date().toISOString(),
-        attachments: [],
-        patientId: item.patient,
-        medicalReportId: item.latestReport,
-        insuranceId: item.insurance,
-      },
-      insurance: item.insurance,
-      report: item.latestReport,
-    });
-  };
-
-  const handleWorkflowChange = async (patientId: string, workflow: string) => {
-    try {
-      await employeeApi.updatePatientStatus(patientId, {
-        patientWorkflowStatus: workflow,
-      });
-
-      setItems((prev) =>
-        prev.map((i) =>
-          i.patient._id === patientId
-            ? {
-                ...i,
-                patient: { ...i.patient, patientWorkflowStatus: workflow },
-              }
-            : i
-        )
-      );
-
-      Swal.fire({
-        icon: "success",
-        title: "Workflow updated",
-        timer: 1200,
-        showConfirmButton: false,
-      });
-    } catch (err: any) {
-      Swal.fire({
-        icon: "error",
-        title: "Error",
-        text: err?.message || "Unable to update workflow",
-      });
-    }
-  };
-
   return (
-    <div className="space-y-6 p-6">
-      {/* MODAL */}
-      {modalData && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl w-[900px] max-h-[90vh] overflow-y-auto shadow-xl p-4">
+    <div className="p-6 space-y-6">
+      {activeItem && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-[900px] max-h-[90vh] overflow-y-auto shadow-xl">
             <ClaimReviewModal
-              claim={modalData.claim}
-              insurance={modalData.insurance}
-              report={modalData.report}
-              onClose={() => setModalData(null)}
+              item={activeItem}
+              onClose={() => setActiveItem(null)}
             />
           </div>
         </div>
       )}
 
-      <h1 className="text-2xl font-semibold flex items-center gap-3">
-        <ClipboardList className="w-5 h-5" />
-        Patients Ready for Claim
-      </h1>
-      <p className="text-sm text-gray-500">
-        Showing patients with <b>ReportSubmitted</b> or <b>ReadyForClaim</b>
-      </p>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-semibold flex gap-2 items-center">
+          <ClipboardList className="w-5 h-5" />
+          Ready for Claim (Submitted Reports)
+        </h1>
 
-      <div className="bg-white rounded-xl shadow-sm border p-6 overflow-x-auto">
+        <button
+          onClick={fetchData}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg border bg-white hover:bg-gray-50 text-sm"
+        >
+          <RefreshCcw
+            className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+          />
+          Refresh
+        </button>
+      </div>
+
+      <div className="bg-white border rounded-xl shadow-sm p-6 overflow-x-auto">
         {loading ? (
-          <div className="py-12 text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto" />
-          </div>
-        ) : error ? (
-          <div className="text-red-600">{error}</div>
+          <Loader2 className="animate-spin mx-auto" />
         ) : items.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No patients ready for claim.
+          <div className="text-center text-gray-500 py-10">
+            No submitted reports
           </div>
         ) : (
-          <table className="min-w-max w-full text-sm border">
+          <table className="min-w-full border text-sm">
             <thead className="bg-gray-100">
               <tr>
                 <th className="p-3 border">Patient</th>
                 <th className="p-3 border">Insurance</th>
-                <th className="p-3 border">Latest Report</th>
-                <th className="p-3 border">Doctor</th>
-                <th className="p-3 border">Workflow</th>
+                <th className="p-3 border">Report</th>
                 <th className="p-3 border text-right">Action</th>
               </tr>
             </thead>
-
             <tbody>
-              {items.map((item, idx) => (
-                <tr key={idx} className="border-b hover:bg-gray-50">
-                  <td className="p-3 border">
-                    <div className="font-semibold">{item.patient.fullName}</div>
-                    <div className="text-gray-600">{item.patient.email}</div>
-                    <div className="text-xs text-gray-400 mt-1">
-                      Workflow: {item.patient.patientWorkflowStatus}
-                    </div>
-                  </td>
+              {items.map((item) => {
+                const patient = item.patientId;
+                const insurance = item.insuranceId;
 
-                  <td className="p-3 border">
-                    <b>ID:</b> {item.patient.insuranceId}
-                    <br />
-                    <b>Provider:</b> {item.insurance?.insuranceProvider}
-                  </td>
+                return (
+                  <tr key={item._id} className="hover:bg-gray-50">
+                    <td className="p-3 border">
+                      <div className="font-semibold">
+                        {patient.firstName} {patient.lastName}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {patient.email}
+                      </div>
+                    </td>
 
-                  <td className="p-3 border max-w-[280px]">
-                    {item.latestReport ? (
-                      <>
-                        <b>{item.latestReport.reportType}</b>
-                        <div>{item.latestReport.primaryDiagnosis}</div>
-                      </>
-                    ) : (
-                      <span className="text-gray-400">No report</span>
-                    )}
-                  </td>
+                    <td className="p-3 border">
+                      {insurance ? (
+                        <>
+                          <b>{insurance.insuranceProvider}</b>
+                          <br />
+                          {insurance.policyNumber}
+                        </>
+                      ) : (
+                        <span className="text-gray-400">No insurance</span>
+                      )}
+                    </td>
 
-                  <td className="p-3 border">
-                    {item.createdBy?.name}
-                    <div className="text-xs text-gray-500">
-                      {item.createdBy?.email}
-                    </div>
-                  </td>
+                    <td className="p-3 border">
+                      <b>{item.reportType}</b>
+                      <br />
+                      {item.primaryDiagnosis}
+                    </td>
 
-                  <td className="p-3 border">
-                    <select
-                      className="border px-2 py-1 rounded"
-                      value={item.patient.patientWorkflowStatus}
-                      onChange={(e) =>
-                        handleWorkflowChange(item.patient._id!, e.target.value)
-                      }
-                    >
-                      <option value="Created">Created</option>
-                      <option value="ReportSubmitted">ReportSubmitted</option>
-                      <option value="ReadyForEmployee">ReadyForEmployee</option>
-                      <option value="ReadyForClaim">ReadyForClaim</option>
-                      <option value="ClaimSubmitted">ClaimSubmitted</option>
-                      <option value="UnderInsuranceReview">
-                        UnderInsuranceReview
-                      </option>
-                      <option value="Approved">Approved</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </td>
-
-                  <td className="p-3 border text-right flex justify-end gap-2">
-                    <button
-                      onClick={() => handleViewDetails(item)}
-                      className="px-3 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center gap-2"
-                    >
-                      <Eye className="w-4 h-4" /> View
-                    </button>
-
-                    <button
-                      onClick={() => handleCreateClaim(item)}
-                      className="px-3 py-2 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 flex items-center gap-2"
-                    >
-                      <DollarSign className="w-4 h-4" /> Create Claim
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    <td className="p-3 border text-right">
+                      <button
+                        onClick={() => setActiveItem(item)}
+                        className="px-3 py-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center gap-2 ml-auto"
+                      >
+                        <Eye className="w-4 h-4" /> View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

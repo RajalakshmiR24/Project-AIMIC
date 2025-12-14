@@ -3,7 +3,6 @@ import { Insurance } from "./types";
 import { Claim } from "./claims.api";
 
 export const insuranceApi = {
-  /* ------------ CLAIM REVIEW ------------ */
 
   async getAllClaims(): Promise<Claim[]> {
     const res = await axiosInstance.get("/api/claims");

@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
@@ -21,20 +22,18 @@ import ChatBot from "./components/ChatBot";
 
 import { decodeRoleFromToken, roleToPath } from "./utils/jwt";
 
-// Providers
+
 import { ClaimsProvider } from "./contexts/ClaimsContext";
 import { InsuranceProvider } from "./contexts/InsuranceContext";
 import { EmployeeProvider } from "./contexts/EmployeeContext";
 import { HospitalProvider } from "./contexts/HospitalContext";
 
-/* ---------------------------------------------
-   Redirect user based on assigned role
----------------------------------------------- */
+
 const HomeRouter: React.FC = () => {
   const { isAuthenticated, user, token, isLoading } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated) return;
 
@@ -48,7 +47,18 @@ const HomeRouter: React.FC = () => {
   return null;
 };
 
-function App() {
+
+const ChatWrapper: React.FC<{
+  isOpen: boolean;
+  onToggle: () => void;
+}> = ({ isOpen, onToggle }) => {
+  const location = useLocation();
+  const isEmployeeRoute = location.pathname.startsWith("/employee");
+  if (!isEmployeeRoute) return null;
+  return <ChatBot isOpen={isOpen} onToggle={onToggle} />;
+};
+
+const App: React.FC = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
@@ -128,13 +138,13 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
 
-        <ChatBot
+        <ChatWrapper
           isOpen={isChatOpen}
-          onToggle={() => setIsChatOpen(!isChatOpen)}
+          onToggle={() => setIsChatOpen((s) => !s)}
         />
       </Router>
     </AuthProvider>
   );
-}
+};
 
 export default App;

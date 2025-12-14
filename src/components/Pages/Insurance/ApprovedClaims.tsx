@@ -30,11 +30,12 @@ const ApprovedClaims: React.FC = () => {
 
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Approved Claims</h2>
+
         <div className="flex items-center gap-2">
           <button
             onClick={load}
-            className="px-3 py-1 rounded bg-sky-600 text-white text-sm hover:bg-sky-700"
             disabled={loading}
+            className="px-3 py-1 rounded bg-sky-600 text-white text-sm hover:bg-sky-700"
           >
             {loading ? "Refreshing..." : "Refresh"}
           </button>
@@ -68,27 +69,30 @@ const ApprovedClaims: React.FC = () => {
 
               return (
                 <tr key={c._id} className="even:bg-gray-50">
+                  {/* CLAIM NUMBER */}
                   <td className="p-3">{c.claimNumber || c._id}</td>
 
-                  {/* PATIENT NAME (NOW OBJECT) */}
+                  {/* PATIENT NAME — updated to firstName + lastName */}
                   <td className="p-3">
-                    {patient?.fullName ?? "Unknown Patient"}
+                    {patient
+                      ? `${patient.firstName} ${patient.lastName}`
+                      : "Unknown Patient"}
                   </td>
 
-                  <td className="p-3">
-                    ₹{c.billedAmount?.toFixed(2) ?? "0.00"}
-                  </td>
+                  {/* BILLED */}
+                  <td className="p-3">₹{c.billedAmount ?? 0}</td>
 
-                  <td className="p-3">
-                    ₹{c.approvedAmount?.toFixed(2) ?? "0.00"}
-                  </td>
+                  {/* APPROVED */}
+                  <td className="p-3">₹{c.approvedAmount ?? 0}</td>
 
+                  {/* SUBMITTED DATE */}
                   <td className="p-3">
                     {c.submittedDate
                       ? new Date(c.submittedDate).toLocaleDateString()
                       : "—"}
                   </td>
 
+                  {/* ACTIONS */}
                   <td className="p-3">
                     <button
                       onClick={() => {
@@ -110,6 +114,7 @@ const ApprovedClaims: React.FC = () => {
       {/* MODAL */}
       {open && selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* BACKDROP */}
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => {
@@ -118,9 +123,11 @@ const ApprovedClaims: React.FC = () => {
             }}
           />
 
+          {/* MODAL CONTENT */}
           <div className="relative w-full max-w-3xl bg-white rounded-lg shadow-lg overflow-auto max-h-[90vh]">
             <div className="p-4 border-b flex justify-between items-center">
               <h3 className="text-lg font-semibold">Claim Review</h3>
+
               <button
                 onClick={() => {
                   setOpen(false);

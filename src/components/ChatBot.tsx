@@ -1,13 +1,48 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { MessageCircle, X, Send, Bot, User, Paperclip, Mic, MicOff, Trash2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from "react";
+import {
+  MessageCircle,
+  X,
+  Bot,
+  User,
+  Paperclip,
+  Mic,
+  MicOff,
+  Trash2,
+} from "lucide-react";
+import { claimsApi } from "../api/claims.api";
+import { axiosInstance } from "../api/axiosInstance";
 
 interface Message {
   id: string;
   text: string;
-  sender: 'user' | 'bot';
+  sender: "user" | "bot";
   timestamp: Date;
-  type?: 'text' | 'file' | 'quick-reply';
+  type?: "text" | "file" | "quick-reply";
   options?: string[];
+  tone?: "success" | "error" | "warning" | "info";
+}
+
+type MessageTone = "success" | "error" | "warning" | "info";
+
+interface ClaimItem {
+  _id?: string;
+  claimNumber?: string;
+  patientId: { _id: string; firstName?: string; lastName?: string } | { _id: string };
+  insuranceId?: { insuranceProvider?: string; policyNumber?: string };
+  claimStatus?: string;
+  billedAmount?: number;
+  submittedDate?: string;
+  notes?: string;
+  denialReason?: string | null;
+}
+
+
+interface PatientItem {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  email?: string;
 }
 
 interface ChatBotProps {
@@ -18,302 +53,373 @@ interface ChatBotProps {
 const ChatBot: React.FC<ChatBotProps> = ({ isOpen, onToggle }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
-      text: 'Hello! I\'m your AI assistant for medical insurance claims. How can I help you today?',
-      sender: 'bot',
+      id: "1",
+      text: "Hello! I'm your AI assistant for medical insurance claims. How can I help you today?",
+      sender: "bot",
       timestamp: new Date(),
-      type: 'quick-reply',
-      options: ['Submit a claim', 'Check claim status', 'Upload documents', 'Get help']
-    }
+      type: "quick-reply",
+      options: ["Submit a claim", "Check claim status", "Upload documents", "Get help"],
+    },
   ]);
-  const [inputText, setInputText] = useState('');
+
+  const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
-  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [attachedFiles, setAttachedFiles] = useState<any[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSendMessage = (text?: string) => {
-    const messageText = text || inputText;
+
+
+
+  const fetchClaims = async (): Promise<ClaimItem[]> => {
+    try {
+      const data = await claimsApi.getAllClaims();
+      return data;
+    } catch (e) {
+      console.warn("fetchClaims failed", e);
+      return [];
+    }
+  };
+
+  const fetchPatientById = async (id: string): Promise<PatientItem | null> => {
+    try {
+      const res = await axiosInstance.get(`/api/patients/${id}`);
+      return res.data?.data ?? null;
+    } catch (e) {
+      console.warn("Patient fetch failed", id, e);
+      return null;
+    }
+  };
+
+  const getClaimsWithPatientNames = async () => {
+    const claims = await fetchClaims();
+    if (!claims.length) return [];
+
+    const uniquePatientIds = Array.from(
+      new Set(claims.map((c: any) => c.patientId?._id).filter(Boolean))
+    );
+
+    const patientMap: Record<string, PatientItem | null> = {};
+
+    await Promise.all(
+      uniquePatientIds.map(async (pid) => {
+        patientMap[pid] = await fetchPatientById(pid);
+      })
+    );
+
+    return claims.map((c) => {
+      const pid = (c.patientId as any)?._id;
+      const p = patientMap[pid] ?? (c.patientId as any);
+
+      const fullName =
+        (p?.firstName || p?.lastName)
+          ? `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim()
+          : pid;
+
+      return {
+        claimId: c._id,
+        claimNumber: c.claimNumber ?? c._id,
+        patientName: fullName,
+        claimStatus: c.claimStatus,
+        denialReason: c.denialReason,
+      };
+    });
+  };
+
+
+
+
+  const getBotResponse = async (
+    userInput: string
+  ): Promise<{ text: string; tone: MessageTone }> => {
+    const input = userInput.toLowerCase().trim();
+
+
+
+
+    const claimMatch = userInput.match(/clm[-\w\d]+/i);
+    if (claimMatch) {
+      const claimNumber = claimMatch[0].toUpperCase();
+
+      const list = await getClaimsWithPatientNames();
+      const result = list.find((c) => c.claimNumber === claimNumber);
+
+      if (!result) {
+        return {
+          tone: "warning",
+          text: `⚠️ No claim found with number **${claimNumber}**.`,
+        };
+      }
+
+      return {
+        tone: result.claimStatus === "Rejected" ? "error" : "info",
+        text:
+          `📄 **Claim Details Found**\n\n` +
+          `**Claim:** ${result.claimNumber}\n` +
+          `**Patient:** ${result.patientName}\n` +
+          `**Status:** ${result.claimStatus}\n` +
+          `**Reason:** ${result.denialReason || "—"}`,
+      };
+    }
+
+
+
+
+    if (input.includes("show claims") || input.includes("claims")) {
+      const list = await getClaimsWithPatientNames();
+
+      if (!list.length) {
+        return { tone: "info", text: "📋 No claims found." };
+      }
+
+      const formatted = list
+        .map((l) => `Claim: ${l.claimNumber}\nPatient: ${l.patientName}`)
+        .join("\n\n");
+
+      return {
+        tone: "info",
+        text: `📋 **Here are the claims:**\n\n${formatted}`,
+      };
+    }
+
+
+    if (input.includes("duplicate")) {
+      return {
+        tone: "error",
+        text: "❌ Duplicate patient detected. A claim already exists.",
+      };
+    }
+
+    if (input.includes("help")) {
+      return {
+        tone: "info",
+        text: "Try typing a claim number like **CLM-PND-0002** or **show claims**.",
+      };
+    }
+
+
+    return {
+      tone: "info",
+      text: "I'm here to help! Try **show claims** or enter a claim number.",
+    };
+  };
+
+
+
+
+  const handleSendMessage = async (text?: string) => {
+    const messageText = text ?? inputText;
     if (!messageText.trim() && attachedFiles.length === 0) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       text: messageText,
-      sender: 'user',
+      sender: "user",
       timestamp: new Date(),
-      type: attachedFiles.length > 0 ? 'file' : 'text'
+      type: attachedFiles.length ? "file" : "text",
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputText('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInputText("");
     setAttachedFiles([]);
     setIsTyping(true);
 
-    // Simulate AI response
+    const response = await getBotResponse(messageText);
+
     setTimeout(() => {
-      const botResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: getBotResponse(messageText),
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botResponse]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          text: response.text,
+          tone: response.tone,
+          sender: "bot",
+          timestamp: new Date(),
+        },
+      ]);
       setIsTyping(false);
-    }, 1500);
+    }, 400);
   };
 
-  const handleQuickReply = (option: string) => {
-    handleSendMessage(option);
-  };
-
-  const getBotResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase();
-    
-    if (input.includes('submit') || input.includes('claim')) {
-      return 'To submit a claim:\n\n1. Go to Employee Portal\n2. Click "Submit New Claim"\n3. Fill out the form with treatment details\n4. Upload required documents (medical reports, invoices)\n5. Submit for AI processing\n\nRequired documents: Medical report, treatment invoice, prescription (if applicable). Would you like me to guide you through the process?';
-    } else if (input.includes('status') || input.includes('track')) {
-      return 'You can track your claim status in several ways:\n\n• **Employee Dashboard**: View real-time status updates\n• **Email Notifications**: Automatic updates sent to your email\n• **SMS Alerts**: Optional text message updates\n\nClaim statuses:\n✅ **Approved** - Payment processed\n⏳ **Pending** - Under AI review\n🔍 **Under Review** - Manual verification needed\n\nWould you like me to check a specific claim ID?';
-    } else if (input.includes('document') || input.includes('upload')) {
-      return 'Document upload guidelines:\n\n**Accepted formats**: PDF, JPG, PNG\n**Maximum size**: 10MB per file\n**Required documents**:\n• Medical report from hospital\n• Treatment invoice/receipt\n• Prescription details (for medication claims)\n• Insurance card copy\n\n**Tips for faster processing**:\n• Ensure documents are clear and readable\n• Include all relevant medical codes\n• Submit complete documentation to avoid delays\n\nNeed help with a specific document type?';
-    } else if (input.includes('hospital') || input.includes('medical')) {
-      return 'For healthcare providers:\n\n**hospital Portal Features**:\n• Submit medical reports directly\n• Manage patient records\n• Track report submission status\n• Access claim-related communications\n\n**Required information**:\n• Patient details and insurance ID\n• Diagnosis with ICD-10 codes\n• Treatment provided\n• Recommended follow-up care\n\nhospitals can access the portal at the top navigation. Need help with report submission?';
-    } else if (input.includes('help') || input.includes('support')) {
-      return 'I can assist you with:\n\n🏥 **Claim Submission**: Step-by-step guidance\n📋 **Status Tracking**: Real-time updates\n📄 **Document Upload**: Format and requirements\n💰 **Payment Information**: Processing times\n🔒 **Security Questions**: Data protection\n📞 **Contact Support**: Human assistance\n\nWhat specific area would you like help with?';
-    } else if (input.includes('payment') || input.includes('money')) {
-      return 'Payment processing information:\n\n**Approved Claims**:\n• Payment processed within 24-48 hours\n• Direct deposit to registered bank account\n• Email confirmation with transaction details\n\n**Payment Methods**:\n• Direct bank transfer (recommended)\n• Check by mail (5-7 business days)\n• Digital wallet (where available)\n\n**Payment Status**:\n• Track in Employee Portal under "My Claims"\n• Automatic notifications when payment is sent\n\nNeed to update your payment information?';
-    } else if (input.includes('ai') || input.includes('artificial intelligence')) {
-      return 'Our AI-powered claim processing:\n\n🤖 **Advanced Analysis**: 99.2% accuracy rate\n⚡ **Lightning Fast**: 2-3 minute processing time\n🔍 **Fraud Detection**: Advanced algorithms detect anomalies\n📋 **Document Verification**: OCR and computer vision\n🏥 **Medical Code Validation**: Real-time ICD-10/CPT verification\n📊 **Risk Assessment**: Predictive analytics\n\n**How it works**:\n1. Upload your documents\n2. AI analyzes and verifies everything\n3. Get instant confidence score and recommendations\n4. Automatic approval for low-risk claims\n\nWant to see AI in action? Submit a claim to experience it!';
-    } else if (input.includes('login') || input.includes('account')) {
-      return 'Account and Login Help:\n\n**Demo Accounts** (for testing):\n• Employee: employee@mediclaim.com (password: password123)\n• hospital: hospital@mediclaim.com (password: password123)\n• Insurance: insurance@mediclaim.com (password: password123)\n\n**Features**:\n• JWT-based secure authentication\n• Role-based access control\n• Password reset functionality\n• Remember me option\n\n**Having trouble?**\n• Check your email and password\n• Use the "Forgot Password" link\n• Contact support for account issues\n\nNeed help with registration or login?';
-    } else {
-      return 'I\'m here to help with your medical insurance claims! I can assist with:\n\n• **Claim submission** and requirements\n• **Status tracking** and updates\n• **Document upload** guidelines\n• **Payment processing** information\n• **General questions** about the platform\n\nWhat would you like to know more about?';
-    }
-  };
+  const handleQuickReply = (option: string) => handleSendMessage(option);
 
   const handleFileAttach = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    const newFiles = files.map(file => ({
+    const newFiles = files.map((file) => ({
       id: Date.now() + Math.random(),
       name: file.name,
-      size: (file.size / 1024 / 1024).toFixed(2) + ' MB',
-      type: file.type
+      size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      type: file.type,
     }));
-    setAttachedFiles(prev => [...prev, ...newFiles]);
-  };
-
-  const removeAttachedFile = (fileId: number) => {
-    setAttachedFiles(prev => prev.filter(file => file.id !== fileId));
+    setAttachedFiles((prev) => [...prev, ...newFiles]);
   };
 
   const toggleRecording = () => {
     setIsRecording(!isRecording);
     if (!isRecording) {
-      alert('Voice recording started... (This is a demo)');
+      alert("Voice recording started... (demo)");
       setTimeout(() => {
         setIsRecording(false);
-        setInputText('I need help submitting my medical claim');
-      }, 3000);
+        setInputText("I need help submitting my medical claim");
+      }, 2000);
     }
   };
 
   const clearChat = () => {
-    if (confirm('Clear all chat messages?')) {
-      setMessages([{
-        id: '1',
-        text: 'Hello! I\'m your AI assistant for medical insurance claims. How can I help you today?',
-        sender: 'bot',
-        timestamp: new Date(),
-        type: 'quick-reply',
-        options: ['Submit a claim', 'Check claim status', 'Upload documents', 'Get help']
-      }]);
+    if (confirm("Clear all chat messages?")) {
+      setMessages([
+        {
+          id: "1",
+          text: "Hello! I'm your AI assistant for medical insurance claims. How can I help you today?",
+          sender: "bot",
+          timestamp: new Date(),
+          type: "quick-reply",
+          options: ["Submit a claim", "Check claim status", "Upload documents", "Get help"],
+        },
+      ]);
     }
   };
 
+
+
+
   return (
     <>
-      {/* Chat Toggle Button */}
       <button
         onClick={onToggle}
-        className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-600 to-teal-600 text-white p-4 rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300 z-40 group"
+        className="fixed bottom-6 right-6 bg-gradient-to-r from-blue-600 to-teal-600 text-white p-4 rounded-full shadow-lg hover:scale-110 transition-all z-40"
       >
-        {isOpen ? (
-          <X className="w-6 h-6" />
-        ) : (
-          <>
-            <MessageCircle className="w-6 h-6" />
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-          </>
-        )}
+        {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border z-50 flex flex-col overflow-hidden">
-          {/* Chat Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-4 flex items-center justify-between">
+        <div className="fixed bottom-24 right-6 w-96 h-[520px] bg-white rounded-2xl shadow-2xl border z-50 flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-4 flex justify-between items-center">
             <div className="flex items-center space-x-3">
-              <div className="relative">
-                <Bot className="w-8 h-8" />
-                <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
-              </div>
+              <Bot className="w-8 h-8" />
               <div>
                 <h3 className="font-semibold">MediClaim AI Assistant</h3>
-                <p className="text-xs opacity-90">Online • Responds instantly</p>
+                <p className="text-xs opacity-80">Online • Responds instantly</p>
               </div>
             </div>
-            <div className="flex space-x-2">
-              <button 
-                onClick={clearChat}
-                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-                title="Clear chat"
-              >
+
+            <div className="flex items-center gap-2">
+              <button onClick={clearChat} className="p-2 hover:bg-white/20 rounded-lg">
                 <Trash2 className="w-4 h-4" />
               </button>
-              <button 
-                onClick={onToggle}
-                className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
-              >
+              <button onClick={onToggle} className="p-2 hover:bg-white/20 rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 p-4 overflow-y-auto space-y-4 bg-gray-50">
-            {messages.map((message) => (
-              <div key={message.id}>
-                <div className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`flex items-start space-x-2 max-w-xs ${message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${message.sender === 'user' ? 'bg-blue-600' : 'bg-white border-2 border-gray-200'}`}>
-                      {message.sender === 'user' ? 
-                        <User className="w-4 h-4 text-white" /> : 
+          <div className="flex-1 p-4 overflow-y-auto bg-gray-50 space-y-4">
+            {messages.map((msg) => (
+              <div key={msg.id}>
+                <div className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={`flex items-start space-x-2 ${msg.sender === "user" ? "flex-row-reverse space-x-reverse" : ""
+                      }`}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${msg.sender === "user" ? "bg-blue-600" : "bg-white border"
+                        }`}
+                    >
+                      {msg.sender === "user" ? (
+                        <User className="w-4 h-4 text-white" />
+                      ) : (
                         <Bot className="w-4 h-4 text-blue-600" />
-                      }
-                    </div>
-                    <div className={`p-3 rounded-2xl max-w-xs ${
-                      message.sender === 'user' 
-                        ? 'bg-blue-600 text-white rounded-br-md' 
-                        : 'bg-white text-gray-900 border border-gray-200 rounded-bl-md'
-                    }`}>
-                      <p className="text-sm whitespace-pre-line">{message.text}</p>
-                      {message.type === 'file' && (
-                        <div className="mt-2 text-xs opacity-75">
-                          📎 File attached
-                        </div>
                       )}
+                    </div>
+
+                    <div
+                      className={`p-3 rounded-2xl max-w-xs whitespace-pre-line 
+                        ${msg.sender === "user"
+                          ? "bg-blue-600 text-white"
+                          : msg.tone === "error"
+                            ? "bg-red-100 text-red-800 border border-red-300"
+                            : msg.tone === "warning"
+                              ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                              : msg.tone === "success"
+                                ? "bg-green-100 text-green-800 border border-green-300"
+                                : "bg-white text-gray-900 border"
+                        }`}
+                    >
+                      {msg.text}
                     </div>
                   </div>
                 </div>
-                
-                {/* Quick Reply Options */}
-                {message.type === 'quick-reply' && message.options && (
-                  <div className="flex flex-wrap gap-2 mt-3 ml-10">
-                    {message.options.map((option, idx) => (
+
+                {msg.type === "quick-reply" && msg.options && (
+                  <div className="flex flex-wrap gap-2 mt-2 ml-10">
+                    {msg.options.map((opt, i) => (
                       <button
-                        key={idx}
-                        onClick={() => handleQuickReply(option)}
-                        className="text-xs bg-blue-100 text-blue-700 px-3 py-2 rounded-full hover:bg-blue-200 transition-colors"
+                        key={i}
+                        onClick={() => handleQuickReply(opt)}
+                        className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full hover:bg-blue-200"
                       >
-                        {option}
+                        {opt}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
             ))}
-            
+
             {isTyping && (
               <div className="flex justify-start">
-                <div className="flex items-start space-x-2">
-                  <div className="w-8 h-8 bg-white border-2 border-gray-200 rounded-full flex items-center justify-center">
-                    <Bot className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div className="bg-white border border-gray-200 p-3 rounded-2xl rounded-bl-md">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
+                <div className="flex space-x-2 items-center">
+                  <Bot className="w-6 h-6 text-blue-600" />
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></div>
                   </div>
                 </div>
               </div>
             )}
+
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Attached Files */}
-          {attachedFiles.length > 0 && (
-            <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-              <div className="flex flex-wrap gap-2">
-                {attachedFiles.map((file) => (
-                  <div key={file.id} className="flex items-center space-x-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs">
-                    <span>{file.name}</span>
-                    <button 
-                      onClick={() => removeAttachedFile(file.id)}
-                      className="hover:bg-blue-200 rounded-full p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Input */}
-          <div className="p-4 border-t border-gray-200 bg-white">
+          <div className="p-4 border-t bg-white">
             <div className="flex items-end space-x-2">
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Attach file"
-                  >
-                    <Paperclip className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={toggleRecording}
-                    className={`p-2 rounded-lg transition-colors ${
-                      isRecording 
-                        ? 'text-red-600 bg-red-50 hover:bg-red-100' 
-                        : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
-                    }`}
-                    title={isRecording ? "Stop recording" : "Voice message"}
-                  >
-                    {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                  </button>
-                </div>
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    placeholder={isRecording ? "Recording..." : "Type your message..."}
-                    className="flex-1 p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    disabled={isRecording}
-                  />
-                  <button
-                    onClick={() => handleSendMessage()}
-                    disabled={!inputText.trim() && attachedFiles.length === 0}
-                    className="bg-gradient-to-r from-blue-600 to-teal-600 text-white p-3 rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Send className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-500">
+                <Paperclip className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={toggleRecording}
+                className={`p-2 ${isRecording ? "text-red-600 bg-red-50" : "text-gray-500"}`}
+              >
+                {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                placeholder="Type: CLM-PND-0002"
+                className="flex-1 p-3 border rounded-xl"
+              />
+
+              <button
+                onClick={() => handleSendMessage()}
+                className="ml-2 bg-gradient-to-r from-blue-600 to-teal-600 text-white px-4 py-2 rounded-xl"
+              >
+                Send
+              </button>
             </div>
-            
+
             <input
               ref={fileInputRef}
               type="file"
@@ -322,28 +428,6 @@ const ChatBot: React.FC<ChatBotProps> = ({ isOpen, onToggle }) => {
               accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
               onChange={handleFileAttach}
             />
-            
-            {/* Quick Actions */}
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button 
-                onClick={() => handleQuickReply('What documents do I need?')}
-                className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full hover:bg-gray-200 transition-colors"
-              >
-                📄 Required docs
-              </button>
-              <button 
-                onClick={() => handleQuickReply('How long does processing take?')}
-                className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full hover:bg-gray-200 transition-colors"
-              >
-                ⏱️ Processing time
-              </button>
-              <button 
-                onClick={() => handleQuickReply('Check claim CL001')}
-                className="text-xs bg-gray-100 text-gray-700 px-3 py-1 rounded-full hover:bg-gray-200 transition-colors"
-              >
-                🔍 Check status
-              </button>
-            </div>
           </div>
         </div>
       )}

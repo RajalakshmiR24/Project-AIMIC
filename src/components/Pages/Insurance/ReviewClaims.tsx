@@ -1,19 +1,19 @@
 // src/components/Pages/Insurance/ReviewClaims.tsx
 import React, { useEffect, useState } from "react";
 import { claimsApi, Claim } from "../../../api/claims.api";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ClaimsTabs from "./ClaimsTabs";
 
 const ReviewClaims: React.FC = () => {
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const load = async () => {
     setLoading(true);
     try {
       const data = await claimsApi.getAllClaims();
 
-      // Filter only claims that need review
       const filtered = data.filter(
         (c) => c.claimStatus !== "Approved" && c.claimStatus !== "Rejected"
       );
@@ -28,30 +28,44 @@ const ReviewClaims: React.FC = () => {
     load();
   }, []);
 
-  // Extract safe patient name
-  const getPatientName = (patientId: any) => {
-    if (!patientId) return "—";
-    if (typeof patientId === "string") return patientId;
-    if (typeof patientId === "object" && patientId.fullName) return patientId.fullName;
-    return "—";
+  const getPatientName = (patient: any) => {
+    if (!patient) return "—";
+    if (typeof patient === "string") return patient;
+
+    const first = patient.firstName || "";
+    const last = patient.lastName || "";
+    return `${first} ${last}`.trim() || "—";
+  };
+
+  const statusClass = (status?: string) => {
+    switch (status) {
+      case "Pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "Approved":
+        return "bg-green-100 text-green-700";
+      case "Rejected":
+        return "bg-red-100 text-red-700";
+      default:
+        return "bg-gray-100 text-gray-700";
+    }
   };
 
   return (
     <div className="p-6">
-<ClaimsTabs/>
+      <ClaimsTabs />
+
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">Review Claims</h2>
 
         <button
           onClick={load}
-          className="px-3 py-1 rounded bg-sky-600 text-white text-sm hover:bg-sky-700"
+          className="px-3 py-1 rounded bg-sky-600 text-white text-sm hover:bg-sky-700 disabled:opacity-60"
           disabled={loading}
         >
           {loading ? "Refreshing..." : "Refresh"}
         </button>
       </div>
 
-      {/* TABLE */}
       <div className="bg-white rounded-lg shadow overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50">
@@ -69,23 +83,31 @@ const ReviewClaims: React.FC = () => {
               <tr key={c._id} className="even:bg-gray-50">
                 <td className="p-3">{c.claimNumber || c._id}</td>
 
-                <td className="p-3">{getPatientName(c.patientId)}</td>
+                <td className="p-3">
+                  {getPatientName(c.patientId)}
+                </td>
 
                 <td className="p-3">
-                  <span className="px-2 py-1 rounded bg-yellow-100 text-yellow-800">
+                  <span
+                    className={`px-2 py-1 rounded text-xs font-medium ${statusClass(
+                      c.claimStatus
+                    )}`}
+                  >
                     {c.claimStatus}
                   </span>
                 </td>
 
-                <td className="p-3">₹{c.billedAmount}</td>
+                <td className="p-3">
+                  ₹{Number(c.billedAmount || 0).toLocaleString("en-IN")}
+                </td>
 
                 <td className="p-3">
-                  <Link
-                    to={`/insurance/review/${c._id}`}
+                  <button
+                    onClick={() => navigate(`/insurance/claims/review/${c._id}`)}
                     className="px-3 py-1 rounded border text-sm hover:bg-gray-100"
                   >
                     Review
-                  </Link>
+                  </button>
                 </td>
               </tr>
             ))}

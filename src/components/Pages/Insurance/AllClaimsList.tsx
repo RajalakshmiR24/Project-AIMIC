@@ -12,7 +12,7 @@ const AllClaimsList: React.FC = () => {
   const fetchAllClaims = async () => {
     try {
       setLoading(true);
-      const res = await insuranceApi.getAllClaims(); // Already an array
+      const res = await insuranceApi.getAllClaims();
       setClaims(res || []);
     } catch (err) {
       console.error("Failed to load claims", err);

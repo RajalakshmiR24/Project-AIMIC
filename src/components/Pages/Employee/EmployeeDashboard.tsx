@@ -12,17 +12,39 @@ import {
 import { Link } from "react-router-dom";
 
 type ClaimResponse = {
-  _id?: string;
+  _id: string;
   claimNumber: string;
   claimStatus: string;
   billedAmount: number;
+  approvedAmount?: number | null;
   submittedDate: string;
-  approvedAmount?: number;
-  patientId?: { fullName?: string };
-  insuranceId?: { insuranceProvider?: string; policyNumber?: string };
-  medicalReportId?: { reportType?: string };
   notes?: string;
-  attachments?: { fileName: string }[];
+  denialReason?: string | null;
+
+  patientId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    fullName: string;
+    email: string;
+  };
+
+  insuranceId: {
+    _id: string;
+    insuranceProvider: string;
+    policyNumber: string;
+  };
+
+  medicalReportId: {
+    _id: string;
+    reportType: string;
+  };
+
+  submittedBy?: {
+    _id: string;
+    name: string;
+    role: string;
+  };
 };
 
 const statusPillClass = (status: string) => {
@@ -30,6 +52,7 @@ const statusPillClass = (status: string) => {
     Approved: "bg-green-100 text-green-700",
     Pending: "bg-yellow-100 text-yellow-700",
     Rejected: "bg-red-100 text-red-700",
+    Denied: "bg-red-100 text-red-700",
   };
   return map[status] || "bg-gray-100 text-gray-700";
 };
@@ -56,7 +79,7 @@ const EmployeeDashboard = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold">Employee Dashboard</h1>
-          <p className="text-gray-500 text-sm">Overview of claim activity</p>
+          <p className="text-gray-500 text-sm">Overview of claims</p>
         </div>
 
         <button
@@ -110,6 +133,7 @@ const EmployeeDashboard = () => {
               <tr className="text-left bg-gray-50">
                 <th className="p-3 border">Claim #</th>
                 <th className="p-3 border">Patient</th>
+                <th className="p-3 border">Insurance</th>
                 <th className="p-3 border">Report</th>
                 <th className="p-3 border">Amount</th>
                 <th className="p-3 border">Status</th>
@@ -119,15 +143,29 @@ const EmployeeDashboard = () => {
             </thead>
 
             <tbody>
-              {backendClaims.slice(0, 5).map((c) => (
+              {backendClaims.slice(0, 8).map((c) => (
                 <tr key={c._id} className="hover:bg-gray-100 transition">
                   <td className="p-3 border font-medium">{c.claimNumber}</td>
-                  <td className="p-3 border">{c.patientId?.fullName || "—"}</td>
-                  <td className="p-3 border">{c.medicalReportId?.reportType || "—"}</td>
+
+                  <td className="p-3 border">{c.patientId?.fullName}</td>
+
+                  <td className="p-3 border">
+                    {c.insuranceId.insuranceProvider} <br />
+                    <span className="text-xs text-gray-500">
+                      {c.insuranceId.policyNumber}
+                    </span>
+                  </td>
+
+                  <td className="p-3 border">{c.medicalReportId.reportType}</td>
+
                   <td className="p-3 border">₹{c.billedAmount}</td>
 
                   <td className="p-3 border">
-                    <span className={`px-2 py-1 rounded-full text-xs ${statusPillClass(c.claimStatus)}`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs ${statusPillClass(
+                        c.claimStatus
+                      )}`}
+                    >
                       {c.claimStatus}
                     </span>
                   </td>
@@ -181,7 +219,7 @@ const Card = ({
   </div>
 );
 
-const Modal = ({ claim, onClose }: { claim: any; onClose: () => void }) => (
+const Modal = ({ claim, onClose }: { claim: ClaimResponse; onClose: () => void }) => (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
     <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-lg">
       <div className="flex justify-between items-center mb-4">
@@ -193,23 +231,39 @@ const Modal = ({ claim, onClose }: { claim: any; onClose: () => void }) => (
 
       <div className="space-y-3 text-sm">
         <p><strong>Status:</strong> {claim.claimStatus}</p>
-        <p><strong>Patient:</strong> {claim.patientId?.fullName || "—"}</p>
-        <p><strong>Insurance:</strong> {claim.insuranceId?.insuranceProvider} — {claim.insuranceId?.policyNumber}</p>
-        <p><strong>Report:</strong> {claim.medicalReportId?.reportType || "—"}</p>
-        <p><strong>Billed:</strong> ₹{claim.billedAmount}</p>
 
-        {claim.approvedAmount && <p><strong>Approved:</strong> ₹{claim.approvedAmount}</p>}
+        <p>
+          <strong>Patient:</strong> {claim.patientId.fullName}  
+          <br />
+          <span className="text-xs text-gray-500">{claim.patientId.email}</span>
+        </p>
 
-        <p><strong>Submitted:</strong> {new Date(claim.submittedDate).toLocaleString()}</p>
+        <p>
+          <strong>Insurance:</strong> {claim.insuranceId.insuranceProvider}  
+          <br />
+          <span className="text-xs">{claim.insuranceId.policyNumber}</span>
+        </p>
+
+        <p><strong>Report:</strong> {claim.medicalReportId.reportType}</p>
+
+        <p><strong>Billed Amount:</strong> ₹{claim.billedAmount}</p>
+
+        {claim.approvedAmount !== null && (
+          <p><strong>Approved Amount:</strong> ₹{claim.approvedAmount}</p>
+        )}
+
+        <p>
+          <strong>Submitted:</strong>{" "}
+          {new Date(claim.submittedDate).toLocaleString()}
+        </p>
 
         {claim.notes && <p><strong>Notes:</strong> {claim.notes}</p>}
 
-        {claim.attachments?.length ? (
-          <p>
-            <strong>Attachments:</strong>{" "}
-            {claim.attachments.map((a: any) => a.fileName).join(", ")}
+        {claim.denialReason && (
+          <p className="text-red-600">
+            <strong>Denial Reason:</strong> {claim.denialReason}
           </p>
-        ) : null}
+        )}
       </div>
     </div>
   </div>
