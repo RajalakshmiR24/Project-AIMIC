@@ -16,6 +16,7 @@ import {
 /* ---- UPDATED BACKEND CLAIM SHAPE ---- */
 type ClaimResponse = {
   _id: string;
+  claimNumber?: string;
   claimStatus: string;
   billedAmount: number;
   submittedDate: string;
@@ -27,12 +28,14 @@ type ClaimResponse = {
     lastName?: string;
     email?: string;
     fullName?: string;
+    patientCode?: string;
   };
 
   insuranceId?: {
     _id: string;
     insuranceProvider?: string;
     policyNumber?: string;
+    insuranceId?: string;
   };
 
   medicalReportId?: {
@@ -98,6 +101,14 @@ const ViewClaims = () => {
       return matchesSearch && matchesStatus && matchesReport;
     });
   }, [backendClaims, searchTerm, statusFilter, reportFilter]);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  const paginatedClaims = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredClaims.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredClaims, currentPage]);
 
   return (
     <div className="space-y-6 p-6">
@@ -178,6 +189,7 @@ const ViewClaims = () => {
             <table className="w-full border text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="p-3 border">Claim ID</th>
                   <th className="p-3 border">Patient</th>
                   <th className="p-3 border">Insurance</th>
                   <th className="p-3 border">Report</th>
@@ -188,8 +200,13 @@ const ViewClaims = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredClaims.map((c) => (
+                {paginatedClaims.map((c) => (
                   <tr key={c._id} className="hover:bg-gray-50">
+                    <td className="p-3 border">
+                      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                        {c.claimNumber || "—"}
+                      </span>
+                    </td>
                     <td className="p-3 border">
                       <div className="font-medium">{c.patientId?.fullName}</div>
                       <div className="text-xs text-gray-500">
@@ -246,6 +263,40 @@ const ViewClaims = () => {
             </table>
           )}
         </div>
+
+        {/* Pagination */}
+        {filteredClaims.length > 5 && (
+          <div className="p-4 border-t flex justify-between items-center bg-gray-50 rounded-b-xl">
+            <span className="text-sm text-gray-500">
+              Showing {Math.min((currentPage - 1) * 5 + 1, filteredClaims.length)} to {Math.min(currentPage * 5, filteredClaims.length)} of {filteredClaims.length}
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 text-sm"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.ceil(filteredClaims.length / 5) }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-1 border rounded text-sm ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                disabled={currentPage === Math.ceil(filteredClaims.length / 5)}
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredClaims.length / 5), p + 1))}
+                className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 text-sm"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -264,11 +315,12 @@ const ViewClaims = () => {
 
             <div className="p-6 grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Detail label="Patient" value={selectedClaim.patientId?.fullName} />
+                <Detail label="Claim ID" value={selectedClaim.claimNumber} />
+                <Detail label="Patient" value={`${selectedClaim.patientId?.patientCode || ""} (${selectedClaim.patientId?.fullName || ""})`} />
                 <Detail label="Report" value={selectedClaim.medicalReportId?.reportType} />
                 <Detail
                   label="Insurance"
-                  value={`${selectedClaim.insuranceId?.insuranceProvider || ""} ${selectedClaim.insuranceId?.policyNumber || ""}`}
+                  value={`${selectedClaim.insuranceId?.insuranceId || ""} - ${selectedClaim.insuranceId?.insuranceProvider || ""}`}
                 />
                 <Detail label="Status" value={selectedClaim.claimStatus} />
               </div>
@@ -279,7 +331,7 @@ const ViewClaims = () => {
                   label="Submitted"
                   value={new Date(selectedClaim.submittedDate).toLocaleString()}
                 />
-                {selectedClaim.notes && (
+                {selectedClaim.notes && selectedClaim.claimNumber && (
                   <Detail label="Notes" value={selectedClaim.notes} />
                 )}
               </div>

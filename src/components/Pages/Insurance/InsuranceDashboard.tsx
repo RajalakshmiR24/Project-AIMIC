@@ -6,26 +6,18 @@ import {
   UsersIcon,
   BuildingLibraryIcon,
   ClipboardDocumentListIcon,
-  MagnifyingGlassIcon,
 } from "@heroicons/react/24/solid";
 import { useNavigate } from "react-router-dom";
-import { Insurance, Patient } from "../../../api/types";
+import SimplePieChart from "../../shared/SimplePieChart";
+import SimpleBarChart from "../../shared/SimpleBarChart";
+import SimpleLineChart from "../../shared/SimpleLineChart";
 
 /* ---------------- HELPERS ---------------- */
 
-const getPatientName = (ref?: Patient | any) => {
-  if (!ref) return "Unknown";
-  const first = ref.firstName ?? "";
-  const last = ref.lastName ?? "";
-  const full = `${first} ${last}`.trim();
-  return full || "Unknown";
-};
-
-const formatDate = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString() : "—";
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /* ----------------------------------------------------
-   FULL DYNAMIC RENDERER FOR ALL FIELDS (from InsuranceRecords)
+   FULL DYNAMIC RENDERER FOR ALL FIELDS
 ---------------------------------------------------- */
 const isObject = (v: any) => v && typeof v === "object" && !Array.isArray(v);
 
@@ -52,8 +44,8 @@ const RenderField = ({ label, value }: { label: string; value: any }) => {
             <div key={i} className="border rounded p-3 bg-gray-50">
               {isObject(item)
                 ? Object.entries(item).map(([k, v]) => (
-                    <RenderField key={k} label={k} value={v} />
-                  ))
+                  <RenderField key={k} label={k} value={v} />
+                ))
                 : String(item)}
             </div>
           ))}
@@ -78,7 +70,6 @@ const InsuranceDetailsFull = ({ data }: { data: any }) => {
       <h2 className="text-2xl font-semibold text-gray-800 border-b pb-3">
         Insurance Full Details
       </h2>
-
       {Object.entries(data).map(([k, v]) => (
         <RenderField key={k} label={k} value={v} />
       ))}
@@ -92,48 +83,80 @@ const InsuranceDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { records = [], loading, fetchInsurance } = useInsurance();
 
-  const [search, setSearch] = useState("");
-  const [filteredRecords, setFilteredRecords] = useState<Insurance[]>([]);
-  const [pendingClaims, setPendingClaims] = useState<number>(0);
+  /* Claims Stats State */
+  const [claimStats, setClaimStats] = useState({ approved: 0, pending: 0, rejected: 0 });
+
+  /* NEW: Chart Data States */
+  const [trendData, setTrendData] = useState<{ label: string; value: number }[]>([]);
+  const [typeData, setTypeData] = useState<{ label: string; value: number; color: string }[]>([]);
+
   const [fullView, setFullView] = useState<any>(null);
 
   /* Load insurance + claims */
   useEffect(() => {
     fetchInsurance();
-    loadPendingClaims();
+    loadClaimStats();
   }, []);
 
-  const loadPendingClaims = async () => {
+  const loadClaimStats = async () => {
     try {
       const res = await claimsApi.getAllClaims();
-      setPendingClaims(res.length);
+      const stats = {
+        approved: res.filter((c: any) => c.claimStatus === "Approved").length,
+        pending: res.filter((c: any) => c.claimStatus === "Pending").length,
+        rejected: res.filter((c: any) => c.claimStatus === "Rejected").length,
+      };
+      setClaimStats(stats);
+
+      // --- 1. Compute Trend Data (Monthly Volume) ---
+      const trendMap: Record<string, number> = {};
+      const sortedRes = [...res].sort((a: any, b: any) =>
+        new Date(a.createdAt || a.submittedDate).getTime() - new Date(b.createdAt || b.submittedDate).getTime()
+      );
+
+      sortedRes.forEach((c: any) => {
+        const d = new Date(c.createdAt || c.submittedDate);
+        const key = `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`; // Daily Trend? Or Monthly?
+        // User asked for "date wise". Let's try Date-wise if range is small, or Month-wise.
+        // Seed data is 6 months. Month-Year is better.
+        const monthKey = `${MONTH_NAMES[d.getMonth()]}`;
+        trendMap[monthKey] = (trendMap[monthKey] || 0) + 1;
+      });
+
+      // Sort months logic (simple array filter based on MONTH_NAMES order)
+      const trendChartData = MONTH_NAMES
+        .filter(m => trendMap[m])
+        .map(m => ({ label: m, value: trendMap[m] }));
+
+      setTrendData(trendChartData);
+
+      // --- 2. Compute Type Data (Claims by Report Type) ---
+      const typeMap: Record<string, number> = {};
+      res.forEach((c: any) => {
+        const type = c.medicalReportId?.reportType || "Unknown";
+        // Simplify type name (remove " Report")
+        const shortType = type.replace(" Report", "").replace(" Consultation", "").replace(" Note", "");
+        typeMap[shortType] = (typeMap[shortType] || 0) + 1;
+      });
+
+      const COLORS = ["bg-blue-500", "bg-purple-500", "bg-pink-500", "bg-indigo-500", "bg-teal-500"];
+      const typeChartData = Object.entries(typeMap)
+        .sort((a, b) => b[1] - a[1]) // Top quantity first
+        .slice(0, 5) // Top 5
+        .map(([label, value], i) => ({
+          label,
+          value,
+          color: COLORS[i % COLORS.length]
+        }));
+
+      setTypeData(typeChartData);
+
     } catch {
-      setPendingClaims(0);
+      setClaimStats({ approved: 0, pending: 0, rejected: 0 });
+      setTrendData([]);
+      setTypeData([]);
     }
   };
-
-  /* Search filter */
-  useEffect(() => {
-    const s = search.toLowerCase().trim();
-    if (!s) {
-      setFilteredRecords(records);
-      return;
-    }
-
-    const filtered = records.filter((r) => {
-      const provider = r.insuranceProvider?.toLowerCase() || "";
-      const insuranceId = (r as any).insuranceId?.toLowerCase() || "";
-      const patientName = getPatientName(r.patientId)?.toLowerCase();
-
-      return (
-        provider.includes(s) ||
-        insuranceId.includes(s) ||
-        patientName.includes(s)
-      );
-    });
-
-    setFilteredRecords(filtered);
-  }, [search, records]);
 
   /* Stats */
   const stats = useMemo(() => {
@@ -154,41 +177,17 @@ const InsuranceDashboard: React.FC = () => {
     };
   }, [records]);
 
-  /* Latest 5 */
-  const latestRecords = useMemo(
-    () =>
-      [...filteredRecords]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt || 0).getTime() -
-            new Date(a.createdAt || 0).getTime()
-        )
-        .slice(0, 5),
-    [filteredRecords]
-  );
-
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 pb-10">
       {/* HEADER + SEARCH */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
           Insurance Dashboard
         </h2>
-
-        <div className="relative w-full md:w-1/3">
-          <MagnifyingGlassIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search provider, insurance ID, or patient…"
-            className="w-full pl-10 pr-4 py-2 bg-white/70 backdrop-blur-md border rounded-xl shadow focus:ring-2 focus:ring-blue-500 focus:outline-none"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
       </div>
 
-      {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
         <div className="bg-gradient-to-br from-green-500 to-green-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer">
           <div className="flex justify-between items-center">
             <p className="opacity-90">Total Records</p>
@@ -220,100 +219,72 @@ const InsuranceDashboard: React.FC = () => {
         </div>
 
         <div
-          onClick={() => navigate("/claims")}
-          className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer"
+          onClick={() => navigate("/insurance/claims/all")}
+          className="bg-gradient-to-br from-orange-500 to-orange-600 text-white p-4 rounded-2xl shadow-lg cursor-pointer"
+        >
+          <div className="flex justify-between items-center mb-2">
+            <p className="opacity-90 font-semibold">Claims Overview</p>
+            <ClipboardDocumentListIcon className="w-8 h-8 opacity-90" />
+          </div>
+
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between items-center bg-white/20 rounded px-2 py-1">
+              <span>Approved</span>
+              <span className="font-bold">{claimStats.approved}</span>
+            </div>
+            <div className="flex justify-between items-center bg-white/20 rounded px-2 py-1">
+              <span>Pending</span>
+              <span className="font-bold">{claimStats.pending}</span>
+            </div>
+            <div className="flex justify-between items-center bg-white/20 rounded px-2 py-1">
+              <span>Rejected</span>
+              <span className="font-bold">{claimStats.rejected}</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => navigate("/insurance/pre-auths")}
+          className="bg-gradient-to-br from-indigo-500 to-indigo-600 text-white p-6 rounded-2xl shadow-lg cursor-pointer"
         >
           <div className="flex justify-between items-center">
-            <p className="opacity-90">Pending Claims</p>
-            <ClipboardDocumentListIcon className="w-12 h-12 opacity-90" />
+            <p className="opacity-90">Pre-Auths</p>
+            <ShieldCheckIcon className="w-12 h-12 opacity-90" />
           </div>
-          <p className="text-4xl font-bold mt-3">{pendingClaims}</p>
+          <p className="text-4xl font-bold mt-3">View</p>
         </div>
       </div>
 
-      {/* RECENT RECORDS */}
-      <div className="bg-white rounded-2xl shadow-xl border">
-        <div className="flex justify-between items-center p-6 border-b">
-          <h3 className="text-xl font-semibold text-gray-800">
-            Recent Insurance Records
-          </h3>
-          <button
-            onClick={() => navigate("/insurance/records")}
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-          >
-            View All
-          </button>
+      {/* ANALYTICS CHARTS GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* CHART 1: STATUS PIE */}
+        <div className="flex justify-center">
+          <SimplePieChart
+            title="Claims Status Distribution"
+            data={[
+              { label: "Approved", value: claimStats.approved, color: "bg-green-500" },
+              { label: "Pending", value: claimStats.pending, color: "bg-orange-400" },
+              { label: "Rejected", value: claimStats.rejected, color: "bg-red-500" },
+            ]}
+          />
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-[950px] w-full text-sm">
-            <thead className="bg-gray-100 uppercase text-xs text-gray-600">
-              <tr>
-                <th className="p-3 text-left w-12">#</th>
-                <th className="p-3 text-left">Provider</th>
-                <th className="p-3 text-left">Plan</th>
-                <th className="p-3 text-left">Policy #</th>
-                <th className="p-3 text-left">Group #</th>
-                <th className="p-3 text-left">Patient</th>
-                <th className="p-3 text-left">Created</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center">
-                    Loading…
-                  </td>
-                </tr>
-              ) : latestRecords.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-4 text-center text-gray-400">
-                    No records
-                  </td>
-                </tr>
-              ) : (
-                latestRecords.map((ins, idx) => (
-                  <tr
-                    key={ins._id}
-                    onClick={() => setFullView(ins)}
-                    className="border-b hover:bg-blue-50 cursor-pointer transition"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") setFullView(ins);
-                    }}
-                  >
-                    {/* INDEX */}
-                    <td className="p-3">{idx + 1}</td>
-
-                    {/* PROVIDER */}
-                    <td className="p-3">{ins.insuranceProvider}</td>
-
-                    {/* PLAN NAME */}
-                    <td className="p-3">{ins.planName || "—"}</td>
-
-                    {/* POLICY NUMBER */}
-                    <td className="p-3">{ins.policyNumber || "—"}</td>
-
-                    {/* GROUP NUMBER */}
-                    <td className="p-3">{ins.groupNumber || "—"}</td>
-
-                    {/* PATIENT */}
-                    <td className="p-3">{getPatientName(ins.patientId)}</td>
-
-                    {/* CREATED DATE */}
-                    <td className="p-3">{formatDate(ins.createdAt)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        {/* CHART 2: TYPE BAR */}
+        <div className="flex justify-center w-full">
+          <SimpleBarChart
+            title="Top Claim Categories"
+            data={typeData}
+          />
         </div>
+      </div>
 
-        <div className="p-4 text-sm text-gray-500 text-center">
-          Showing latest 5 records
-        </div>
+      {/* CHART 3: TREND LINE - FULL WIDTH */}
+      <div className="w-full">
+        <SimpleLineChart
+          title="Monthly Claims Volume"
+          data={trendData}
+          color="text-blue-600"
+        />
       </div>
 
       {/* FULL DATA VIEW MODAL */}
@@ -323,8 +294,6 @@ const InsuranceDashboard: React.FC = () => {
             <InsuranceDetailsFull data={fullView} />
 
             <div className="p-4 border-t text-right">
-            
-
               <button
                 className="px-4 py-2 bg-gray-600 text-white rounded"
                 onClick={() => setFullView(null)}

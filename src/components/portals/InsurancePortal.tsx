@@ -1,7 +1,7 @@
 // src/components/portals/InsurancePortal.tsx
 import { Routes, Route, useLocation } from "react-router-dom";
 import PortalLayout from "../shared/PortalLayout";
-import { Home, ListChecks } from "lucide-react";
+import { Home, ListChecks, ShieldCheck } from "lucide-react";
 
 import InsuranceDashboard from "../Pages/Insurance/InsuranceDashboard";
 import InsuranceRecords from "../Pages/Insurance/InsuranceRecords";
@@ -10,6 +10,7 @@ import ClaimReviewPage from "../Pages/Insurance/ClaimReviewPage";
 import ApprovedClaims from "../Pages/Insurance/ApprovedClaims";
 import AllClaimsPage from "../Pages/Insurance/AllClaimsPage";
 import AllClaimsList from "../Pages/Insurance/AllClaimsList";
+import PreAuthList from "../Pages/Insurance/PreAuthList";
 
 const InsurancePortal = () => {
   const location = useLocation();
@@ -24,6 +25,11 @@ const InsurancePortal = () => {
       icon: <Home className="w-5 h-5" />,
       label: "Insurance Records",
       path: "/insurance/records",
+    },
+    {
+      icon: <ShieldCheck className="w-5 h-5" />,
+      label: "Pre-Auths",
+      path: "/insurance/pre-auths",
     },
     {
       icon: <ListChecks className="w-5 h-5" />,
@@ -57,6 +63,9 @@ const InsurancePortal = () => {
         <Route path="claims/review/:id" element={<ClaimReviewPage />} />
         <Route path="claims/approved" element={<ApprovedClaims />} />
         <Route path="claims/all" element={<AllClaimsList />} />
+
+        {/* Pre-Auths */}
+        <Route path="pre-auths" element={<PreAuthList />} />
       </Routes>
     </PortalLayout>
   );

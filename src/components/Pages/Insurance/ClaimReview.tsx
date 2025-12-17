@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { claimsApi, Claim } from "../../../api/claims.api";
 import { insuranceApi } from "../../../api/insurance.api";
+import { useNavigate } from "react-router-dom";
 import ClaimsTabs from "./ClaimsTabs";
 
 type ClaimReviewProps = {
@@ -11,19 +12,49 @@ type ClaimReviewProps = {
 
 const TABS = ["Patient", "Insurance", "Report"] as const;
 
+
 const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
   const [claim, setClaim] = useState<Claim | null>(null);
-  const [activeTab, setActiveTab] =
-    useState<(typeof TABS)[number]>("Patient");
+  const [activeTab, setActiveTab] = useState<(typeof TABS)[number]>("Patient");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [nextClaimId, setNextClaimId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const load = async () => {
     if (!claimId) return;
     setLoading(true);
     try {
+      // Load current claim
       const c = await claimsApi.getClaimById(claimId);
       setClaim(c);
+
+      // Load next claim ID
+      // OPTIMIZATION: In a real app, this should be a backend endpoint like /claims/:id/next
+      const allClaims = await claimsApi.getAllClaims();
+      const pendingClaims = allClaims.filter(
+        (cl) => cl.claimStatus !== "Approved" && cl.claimStatus !== "Rejected"
+      );
+
+      const currentIndex = pendingClaims.findIndex((cl) => cl._id === claimId);
+
+      if (currentIndex !== -1) {
+        // If current claim is in the pending list, get the next one
+        if (currentIndex < pendingClaims.length - 1) {
+          setNextClaimId(pendingClaims[currentIndex + 1]._id || null);
+        } else {
+          setNextClaimId(null);
+        }
+      } else {
+        // If current claim is NOT in pending list (e.g. just approved/rejected), 
+        // the "next" claim is simply the first one in the queue.
+        if (pendingClaims.length > 0) {
+          setNextClaimId(pendingClaims[0]._id || null);
+        } else {
+          setNextClaimId(null);
+        }
+      }
+
     } finally {
       setLoading(false);
     }
@@ -33,6 +64,13 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
     load();
   }, [claimId]);
 
+  const goToNext = () => {
+    if (nextClaimId) {
+      navigate(`/insurance/claims/review/${nextClaimId}`);
+    }
+  };
+
+  // ... (approve, reject, requestInfo functions same as before) 
   const approve = async () => {
     if (!claim?._id) return;
     setActionLoading(true);
@@ -58,19 +96,6 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
     }
   };
 
-  const requestInfo = async () => {
-    if (!claim?._id) return;
-    const message = window.prompt("Enter request message:");
-    if (!message) return;
-
-    setActionLoading(true);
-    try {
-      await insuranceApi.requestMoreInfo(claim._id, message);
-      await load();
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   if (!claimId)
     return <div className="p-4 text-gray-500">Invalid claim</div>;
@@ -88,12 +113,22 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
 
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Claim Review</h2>
-        <button
-          onClick={load}
-          className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm"
-        >
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          {nextClaimId && (
+            <button
+              onClick={goToNext}
+              className="px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 text-sm flex items-center gap-1"
+            >
+              Next Claim →
+            </button>
+          )}
+          <button
+            onClick={load}
+            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 text-sm"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       <div className="border-b flex gap-6">
@@ -101,17 +136,16 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`pb-2 text-sm font-medium ${
-              activeTab === tab
-                ? "border-b-2 border-blue-600 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`pb-2 text-sm font-medium ${activeTab === tab
+              ? "border-b-2 border-blue-600 text-blue-600"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
           >
             {tab}
           </button>
         ))}
       </div>
-              <div><strong>Notes:</strong> {claim.notes}</div>
+      <div><strong>Notes:</strong> {claim.notes}</div>
 
       {/* ================= PATIENT ================= */}
       {activeTab === "Patient" && (
@@ -135,7 +169,7 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
 
               <div><strong>Billed Amount:</strong> ₹{claim.billedAmount}</div>
               <div><strong>Approved Amount:</strong> ₹{claim.approvedAmount ?? "—"}</div>
-              <div><strong>Submitted On:</strong> {new Date(claim.submittedDate).toLocaleString()}</div>
+              <div><strong>Submitted On:</strong> {claim.submittedDate ? new Date(claim.submittedDate).toLocaleString() : "—"}</div>
             </div>
           </div>
         </div>
@@ -162,6 +196,31 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
               ))}
             </ul>
           </div>
+
+          {/* DOCUMENTS */}
+          {insurance.documents && insurance.documents.length > 0 && (
+            <div className="pt-2 border-t mt-2">
+              <strong>Documents:</strong>
+              <div className="flex flex-col gap-1 mt-1">
+                {insurance.documents.map((d: any, i: number) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-gray-600">📄 {d.name}</span>
+                    {d.data ? (
+                      <a
+                        href={d.data} // It's already a Data URL from FileReader
+                        download={d.name}
+                        className="text-blue-600 hover:underline text-xs"
+                      >
+                        Download
+                      </a>
+                    ) : d.url ? (
+                      <a href={d.url} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline text-xs">Open URL</a>
+                    ) : <span className="text-gray-400 text-xs">(No file)</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -224,11 +283,30 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
               </tbody>
             </table>
           </div>
+
+          {/* ATTACHMENTS */}
+          {report.pdfFiles && report.pdfFiles.length > 0 && (
+            <div className="pt-2 border-t mt-2">
+              <strong>Attachments (PDFs):</strong>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {report.pdfFiles.map((f: any, i: number) => (
+                  <a
+                    key={i}
+                    href={`data:application/pdf;base64,${f.data}`}
+                    download={f.filename}
+                    className="flex items-center gap-2 px-3 py-1 bg-red-100 text-red-700 rounded border border-red-200 text-xs hover:bg-red-200"
+                  >
+                    📄 {f.filename} (Download)
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {!["Approved", "Rejected"].includes(claim.claimStatus) && (
-        <div className="flex gap-3 pt-4">
+      <div className="flex gap-3 pt-4">
+        {claim.claimStatus !== "Approved" && (
           <button
             disabled={actionLoading}
             onClick={approve}
@@ -236,7 +314,9 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
           >
             Approve
           </button>
+        )}
 
+        {claim.claimStatus !== "Rejected" && (
           <button
             disabled={actionLoading}
             onClick={reject}
@@ -244,16 +324,10 @@ const ClaimReview: React.FC<ClaimReviewProps> = ({ claimId, onClose }) => {
           >
             Reject
           </button>
+        )}
 
-          <button
-            disabled={actionLoading}
-            onClick={requestInfo}
-            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-          >
-            Request More Info
-          </button>
-        </div>
-      )}
+        {/* Only show Request Info if pending */}
+      </div>
 
       {onClose && (
         <button

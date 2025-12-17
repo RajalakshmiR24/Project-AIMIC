@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Menu, X, LogOut, Bell, Settings, User, HelpCircle, Download } from 'lucide-react';
+import { Shield, Menu, X, LogOut, Settings, User, HelpCircle, Download } from 'lucide-react';
+
 import { useAuth } from '../../contexts/AuthContext';
 
 interface MenuItem {
@@ -25,15 +26,8 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
   children
 }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const { user, logout } = useAuth();
-
-  const notifications = [
-    { id: 1, text: 'Claim CL001 has been approved', time: '2 min ago', type: 'success' },
-    { id: 2, text: 'New document uploaded for CL002', time: '5 min ago', type: 'info' },
-    { id: 3, text: 'Payment processed for CL003', time: '1 hour ago', type: 'success' }
-  ];
 
   const handleLogout = () => {
     if (confirm('Are you sure you want to logout?')) {
@@ -51,16 +45,6 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
     alert('Opening support contact form...');
   };
 
-  const markNotificationAsRead = (notificationId: number) => {
-    alert(`Notification ${notificationId} marked as read`);
-  };
-
-  const clearAllNotifications = () => {
-    if (confirm('Clear all notifications?')) {
-      alert('All notifications cleared!');
-      setShowNotifications(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -82,52 +66,7 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition-colors relative"
-              >
-                <Bell className="w-6 h-6" />
-                <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold">{notifications.length}</span>
-                </div>
-              </button>
-
-              {showNotifications && (
-                <div className="absolute right-0 top-12 w-80 bg-white rounded-xl shadow-2xl border z-50 text-gray-900">
-                  <div className="p-4 border-b border-gray-200">
-                    <div className="flex justify-between items-center">
-                      <h4 className="font-semibold">Notifications</h4>
-                      <button
-                        onClick={clearAllNotifications}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Clear all
-                      </button>
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.map((notification) => (
-                      <div key={notification.id} className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <p className="text-sm text-gray-900">{notification.text}</p>
-                            <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                          </div>
-                          <button
-                            onClick={() => markNotificationAsRead(notification.id)}
-                            className="text-blue-600 hover:text-blue-700 text-xs ml-2"
-                          >
-                            Mark read
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Notifications Removed */}
 
 
             <div className="relative">
@@ -197,8 +136,8 @@ const PortalLayout: React.FC<PortalLayoutProps> = ({
                       <Link
                         to={item.path}
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
-                            ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600 shadow-sm'
-                            : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                          ? 'bg-blue-50 text-blue-600 border-r-4 border-blue-600 shadow-sm'
+                          : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
                           }`}
                         onClick={() => setIsSidebarOpen(false)}
                       >

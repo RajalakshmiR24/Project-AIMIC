@@ -1,9 +1,9 @@
-// src/components/Pages/Hospital/HospitalDashboard.tsx
 import { useHospital } from "../../../contexts/HospitalContext";
 import { useClaims } from "../../../contexts/ClaimsContext";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+// Link removed (unused)
 import { Users, FileText, Activity, IndianRupee } from "lucide-react";
+import SimpleBarChart from "../../shared/SimpleBarChart";
 
 const HospitalDashboard = () => {
   const { patients, reports, loading, fetchPatients, fetchReports } = useHospital();
@@ -124,159 +124,24 @@ const HospitalDashboard = () => {
         </div>
       </div>
 
-      {/* TABLES */}
-      <div className="grid lg:grid-cols-3 gap-10">
+      {/* ANALYTICS CHARTS */}
+      <div className="grid md:grid-cols-2 gap-6">
+        <SimpleBarChart
+          title="Activity Volume"
+          data={[
+            { label: "Patients", value: totals.totalPatients, color: "bg-teal-500" },
+            { label: "Reports", value: totals.reportsSubmitted, color: "bg-blue-500" },
+            { label: "Claims", value: totals.totalClaims, color: "bg-orange-500" },
+          ]}
+        />
 
-        {/* Recent Patients */}
-        <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Recent Patients</h2>
-            <Link to="/hospital/patients" className="text-sm text-teal-600">
-              View All
-            </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="p-3 font-medium text-gray-700">#</th>
-                  <th className="p-3 font-medium text-gray-700">Name</th>
-                  <th className="p-3 font-medium text-gray-700">DOB</th>
-                  <th className="p-3 font-medium text-gray-700">Phone</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="p-4 text-center text-gray-500">
-                      Loading…
-                    </td>
-                  </tr>
-                ) : (
-                  patients.slice(0, 5).map((p, index) => (
-                    <tr key={p._id} className="border-b hover:bg-gray-50">
-                      <td className="p-3">{index + 1}</td>
-                      <td className="p-3 font-medium">
-                        {p.firstName} {p.lastName}
-                      </td>
-                      <td className="p-3">
-                        {p.dob ? new Date(p.dob).toLocaleDateString() : "—"}
-                      </td>
-                      <td className="p-3">{p.phone || "—"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Recent Reports */}
-        <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Recent Reports</h2>
-            <Link to="/hospital/reports" className="text-sm text-teal-600">
-              View All
-            </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="p-3 font-medium text-gray-700">#</th>
-                  <th className="p-3 font-medium text-gray-700">Type</th>
-                  <th className="p-3 font-medium text-gray-700">Patient</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={3} className="p-4 text-center text-gray-500">
-                      Loading…
-                    </td>
-                  </tr>
-                ) : (
-                  reports.slice(0, 5).map((r, index) => (
-                    <tr key={r._id} className="border-b hover:bg-gray-50">
-                      <td className="p-3">{index + 1}</td>
-                      <td className="p-3 font-medium">{r.reportType}</td>
-                      <td className="p-3">
-                        {typeof r.patientId === "string"
-                          ? r.patientId
-                          : `${r.patientId?.firstName} ${r.patientId?.lastName}`}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Recent Claims */}
-        <div className="bg-white rounded-xl shadow-sm border lg:col-span-1">
-          <div className="p-6 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Recent Claims</h2>
-            <Link to="/hospital/claims" className="text-sm text-orange-600">
-              View All
-            </Link>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="p-3 font-medium text-gray-700">#</th>
-                  <th className="p-3 font-medium text-gray-700">Claim #</th>
-                  <th className="p-3 font-medium text-gray-700">Patient</th>
-                  <th className="p-3 font-medium text-gray-700">Status</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {claimsLoading ? (
-                  <tr>
-                    <td colSpan={4} className="p-4 text-center text-gray-500">
-                      Loading…
-                    </td>
-                  </tr>
-                ) : (
-                  claims.slice(0, 5).map((c, index) => (
-                    <tr key={c._id} className="border-b hover:bg-gray-50">
-                      <td className="p-3">{index + 1}</td>
-                      <td className="p-3 font-medium">{c.claimNumber}</td>
-                      <td className="p-3">
-                        {c.patientId
-                          ? `${c.patientId.firstName} ${c.patientId.lastName}`
-                          : "Unknown"}
-                      </td>
-                      <td className="p-3">
-                        <span
-                          className={`px-3 py-1 text-xs rounded-full ${
-                            c.claimStatus === "Approved"
-                              ? "bg-green-100 text-green-700"
-                              : c.claimStatus === "Submitted"
-                              ? "bg-blue-100 text-blue-700"
-                              : c.claimStatus === "Rejected"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
-                          {c.claimStatus}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+        <SimpleBarChart
+          title="Financial Overview"
+          data={[
+            { label: "Approved", value: totals.approvedAmount, color: "bg-green-500" },
+            { label: "Pending/Rejected", value: totals.pendingRejectedAmount, color: "bg-red-500" },
+          ]}
+        />
       </div>
     </div>
   );

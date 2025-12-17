@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import Swal from "sweetalert2";
 import { Eye, RefreshCcw, Search } from "lucide-react";
 
@@ -59,15 +59,14 @@ const AllClaimsPage: React.FC = () => {
         <strong>Billed Amount:</strong> ${claim.billedAmount ?? "-"}<br/>
         <strong>Approved Amount:</strong> ${claim.approvedAmount ?? "-"}<br/>
         <strong>Submitted Date:</strong> ${formatDate(claim.submittedDate)}<br/>
-        ${
-          claim.denialReason
-            ? `<strong>Denial Reason:</strong> ${claim.denialReason}<br/>`
-            : ""
-        }
-        <div style="margin-top:8px">
-          <strong>Notes:</strong>
-          <div style="margin-top:4px">${claim.notes || "-"}</div>
-        </div>
+        ${claim.denialReason
+        ? `<strong>Denial Reason:</strong> ${claim.denialReason}<br/>`
+        : ""
+      }
+        ${claim.notes && claim.claimNumber
+        ? `<div style="margin-top:8px"><strong>Notes:</strong><div style="margin-top:4px">${claim.notes}</div></div>`
+        : ""
+      }
       </div>
     `;
 
@@ -102,6 +101,14 @@ const AllClaimsPage: React.FC = () => {
       })
     );
   };
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
+
+  const paginatedClaims = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filtered.slice(start, start + ITEMS_PER_PAGE);
+  }, [filtered, currentPage]);
 
   useEffect(() => {
     const load = async () => {
@@ -166,7 +173,7 @@ const AllClaimsPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => {
+              {paginatedClaims.map((c) => {
                 const patient =
                   typeof c.patientId === "object"
                     ? c.patientId
@@ -211,6 +218,40 @@ const AllClaimsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        )}
+
+        {/* Pagination */}
+        {filtered.length > 5 && (
+          <div className="p-4 border-t flex justify-between items-center bg-gray-50 rounded-b-xl">
+            <span className="text-sm text-gray-500">
+              Showing {Math.min((currentPage - 1) * 5 + 1, filtered.length)} to {Math.min(currentPage * 5, filtered.length)} of {filtered.length}
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 text-sm"
+              >
+                Previous
+              </button>
+              {Array.from({ length: Math.ceil(filtered.length / 5) }, (_, i) => (
+                <button
+                  key={i + 1}
+                  onClick={() => setCurrentPage(i + 1)}
+                  className={`px-3 py-1 border rounded text-sm ${currentPage === i + 1 ? 'bg-indigo-600 text-white' : 'bg-white hover:bg-gray-50'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                disabled={currentPage === Math.ceil(filtered.length / 5)}
+                onClick={() => setCurrentPage(p => Math.min(Math.ceil(filtered.length / 5), p + 1))}
+                className="px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50 text-sm"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

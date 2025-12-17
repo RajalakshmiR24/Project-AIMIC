@@ -36,7 +36,7 @@ const AllReportsPage: React.FC = () => {
       return String(d);
     }
   };
-  
+
   const openReportFormModal = (existing?: any) => {
     const patientOptions = patients
       .map(
@@ -96,6 +96,26 @@ const AllReportsPage: React.FC = () => {
             <select id="r2" class="select">
               <option value="">Select report type</option>
               <option value="Consultation Report">Consultation Report</option>
+              <option value="Gastroenterology Note">Gastroenterology Note</option>
+              <option value="Pediatric Immunization Record">Pediatric Immunization Record</option>
+              <option value="Oncology Screening">Oncology Screening</option>
+              <option value="Urology Scan Report">Urology Scan Report</option>
+              <option value="Dietary Consultation">Dietary Consultation</option>
+              <option value="Physiotherapy Assessment">Physiotherapy Assessment</option>
+              <option value="Psychiatric Evaluation">Psychiatric Evaluation</option>
+              <option value="Ophthalmology Report">Ophthalmology Report</option>
+              <option value="Dental Procedure Note">Dental Procedure Note</option>
+              <option value="ENT Consultation">ENT Consultation</option>
+              <option value="Advanced Imaging (MRI)">Advanced Imaging (MRI)</option>
+              <option value="Cardiology Consult">Cardiology Consult</option>
+              <option value="General Checkup">General Checkup</option>
+              <option value="Orthopedic Review">Orthopedic Review</option>
+              <option value="Incomplete Consultation">Incomplete Consultation</option>
+              <option value="Surgical Operative Note">Surgical Operative Note</option>
+              <option value="Dermatology Consult">Dermatology Consult</option>
+              <option value="Annual Wellness Visit">Annual Wellness Visit</option>
+              <option value="Hematology Report">Hematology Report</option>
+              <option value="Radiology Report">Radiology Report</option>
               <option value="Laboratory Results">Laboratory Results</option>
               <option value="X-Ray Report">X-Ray Report</option>
               <option value="Surgery Report">Surgery Report</option>
@@ -370,7 +390,7 @@ const AllReportsPage: React.FC = () => {
   };
 
   /* ---------------------------------------------------------
-     UPLOAD PDF HANDLER
+     UPLOAD PDF HANDLER (Base64)
   --------------------------------------------------------- */
   const handleUploadPdf = async (reportId: string) => {
     const { value: file } = await Swal.fire({
@@ -384,9 +404,12 @@ const AllReportsPage: React.FC = () => {
     if (!file) return;
 
     try {
+      // The context's uploadPdfToReport converts it to base64 internally
+      // See HospitalContext.tsx:127 -> fileToBase64(file)
       await uploadPdfToReport(reportId, file);
       Swal.fire("Uploaded", "PDF uploaded successfully", "success");
-    } catch {
+    } catch (e: any) {
+      console.error(e);
       Swal.fire("Error", "Upload failed", "error");
     }
   };
@@ -416,8 +439,8 @@ const AllReportsPage: React.FC = () => {
           </thead>
           <tbody>
             ${report.procedureCodes
-              .map(
-                (pc: any) => `
+        .map(
+          (pc: any) => `
                 <tr>
                   <td style="padding:6px;">${pc.cpt || "-"}</td>
                   <td style="padding:6px;">${pc.modifier || "-"}</td>
@@ -425,8 +448,8 @@ const AllReportsPage: React.FC = () => {
                   <td style="padding:6px;text-align:right;">${pc.charges ?? "-"}</td>
                   <td style="padding:6px;text-align:right;">${pc.units ?? "-"}</td>
                 </tr>`
-              )
-              .join("")}
+        )
+        .join("")}
           </tbody>
         </table>`
       : `<p style="color:gray">No procedures added</p>`;
@@ -467,8 +490,25 @@ const AllReportsPage: React.FC = () => {
         </div>
 
         <hr style="margin:12px 0" />
+        <hr style="margin:12px 0" />
         <h3 style="font-weight:600;margin:10px 0 6px;">Procedures</h3>
         ${procHtml}
+
+        <hr style="margin:12px 0" />
+        <h3 style="font-weight:600;margin:10px 0 6px;">Attachments</h3>
+        ${report.pdfFiles && report.pdfFiles.length > 0
+          ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">
+                ${report.pdfFiles
+            .map(
+              (f: any) =>
+                `<a href="data:application/pdf;base64,${f.data}" download="${f.filename}" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#fee2e2;color:#b91c1c;border-radius:4px;text-decoration:none;font-size:12px;border:1px solid #fecaca;">
+                        📄 ${f.filename}
+                       </a>`
+            )
+            .join("")}
+               </div>`
+          : `<p style="color:gray;">No attachments</p>`
+        }
       </div>
     `,
       confirmButtonText: "Close",
@@ -533,44 +573,44 @@ const AllReportsPage: React.FC = () => {
 
   return (
     <div className="w-full space-y-6">
-<div className="w-full flex flex-wrap items-center justify-between gap-3 bg-white p-3 border rounded-xl">
-  <div className="flex items-center gap-3">
-    <h1 className="text-2xl font-semibold whitespace-nowrap">All Medical Reports</h1>
-  </div>
+      <div className="w-full flex flex-wrap items-center justify-between gap-3 bg-white p-3 border rounded-xl">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold whitespace-nowrap">All Medical Reports</h1>
+        </div>
 
-  <div className="flex items-center gap-2">
-    <input
-      className="w-52 sm:w-72 md:w-96 outline-none text-sm border p-2 rounded-lg"
-      placeholder="Search by patient, diagnosis, report type…"
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
-    />
-    <button onClick={handleSearch} className="px-4 py-2 bg-gray-800 text-white rounded-lg">
-      Search
-    </button>
-  </div>
+        <div className="flex items-center gap-2">
+          <input
+            className="w-52 sm:w-72 md:w-96 outline-none text-sm border p-2 rounded-lg"
+            placeholder="Search by patient, diagnosis, report type…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <button onClick={handleSearch} className="px-4 py-2 bg-gray-800 text-white rounded-lg">
+            Search
+          </button>
+        </div>
 
-  <div className="flex items-center gap-2">
-    <button
-      onClick={async () => {
-        setLoading(true);
-        await fetchReports();
-        setLoading(false);
-        handleSearch();
-      }}
-      className="px-3 py-2 bg-gray-200 rounded-lg flex items-center gap-2"
-    >
-      <RefreshCcw size={16} /> Refresh
-    </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              setLoading(true);
+              await fetchReports();
+              setLoading(false);
+              handleSearch();
+            }}
+            className="px-3 py-2 bg-gray-200 rounded-lg flex items-center gap-2"
+          >
+            <RefreshCcw size={16} /> Refresh
+          </button>
 
-    <button
-      onClick={() => openReportFormModal()}
-      className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
-    >
-      <FilePlus size={18} /> Add Report
-    </button>
-  </div>
-</div>
+          <button
+            onClick={() => openReportFormModal()}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
+          >
+            <FilePlus size={18} /> Add Report
+          </button>
+        </div>
+      </div>
 
 
       <div className="w-full overflow-x-auto rounded-xl border bg-white shadow-sm">
@@ -613,8 +653,7 @@ const AllReportsPage: React.FC = () => {
                       <td className="p-3">
                         <div className="font-medium">
                           {patient?.fullName ||
-                            `${patient?.firstName || ""} ${
-                              patient?.lastName || ""
+                            `${patient?.firstName || ""} ${patient?.lastName || ""
                             }`}
                         </div>
                         <div className="text-xs text-gray-500">
@@ -694,11 +733,10 @@ const AllReportsPage: React.FC = () => {
                 <button
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className={`px-3 py-2 rounded-lg ${
-                    page === 1
-                      ? "bg-gray-200 text-gray-400"
-                      : "bg-gray-800 text-white"
-                  }`}
+                  className={`px-3 py-2 rounded-lg ${page === 1
+                    ? "bg-gray-200 text-gray-400"
+                    : "bg-gray-800 text-white"
+                    }`}
                 >
                   Prev
                 </button>
@@ -706,11 +744,10 @@ const AllReportsPage: React.FC = () => {
                 <button
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className={`px-3 py-2 rounded-lg ${
-                    page === totalPages
-                      ? "bg-gray-200 text-gray-400"
-                      : "bg-gray-800 text-white"
-                  }`}
+                  className={`px-3 py-2 rounded-lg ${page === totalPages
+                    ? "bg-gray-200 text-gray-400"
+                    : "bg-gray-800 text-white"
+                    }`}
                 >
                   Next
                 </button>

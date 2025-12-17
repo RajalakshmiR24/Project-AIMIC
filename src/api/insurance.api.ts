@@ -80,6 +80,11 @@ export const insuranceApi = {
     return res.data.data;
   },
 
+  async getUnassignedInsurance(): Promise<Insurance[]> {
+    const res = await axiosInstance.get("/api/insurance/unassigned");
+    return res.data.data;
+  },
+
   async updateCardImages(id: string, payload: Partial<Insurance>): Promise<Insurance> {
     const res = await axiosInstance.put(`/api/insurance/card-images/${id}`, payload);
     return res.data.data;
@@ -97,6 +102,14 @@ export const insuranceApi = {
 
   async clearOtherInsurance(id: string): Promise<Insurance> {
     const res = await axiosInstance.put(`/api/insurance/clear-other/${id}`);
+    return res.data.data;
+  },
+
+  /* ----------------------------------------------------
+     GET PRE-AUTHORIZATIONS (New)
+  ----------------------------------------------------- */
+  async getPreAuthorizations(): Promise<any[]> {
+    const res = await axiosInstance.get("/api/insurance/pre-auths");
     return res.data.data;
   }
 };

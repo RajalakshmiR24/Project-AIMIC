@@ -34,6 +34,7 @@ export interface Claim {
   submittedBy?: any;
   submittedDate?: string;
 
+  denialReason?: string;
   notes?: string;
   attachments?: ClaimAttachment[];
 

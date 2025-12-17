@@ -7,8 +7,7 @@ import {
   EyeIcon,
   PencilSquareIcon,
   TrashIcon,
-  ArrowPathIcon,
-  PlusIcon,
+  ArrowPathIcon
 } from "@heroicons/react/24/solid";
 
 const getPatientName = (p: Patient) =>
@@ -58,10 +57,21 @@ const RenderField = ({ label, value }: { label: string; value: any }) => {
     );
   }
 
+  if (label === "data" && typeof value === "string" && value.startsWith("data:")) {
+    return (
+      <div className="flex justify-between border-b pb-1 text-sm">
+        <span className="font-medium text-gray-600 capitalize">{label}</span>
+        <a href={value} download="document" className="text-blue-600 underline">
+          Download File
+        </a>
+      </div>
+    );
+  }
+
   return (
     <div className="flex justify-between border-b pb-1 text-sm">
       <span className="font-medium text-gray-600 capitalize">{label}</span>
-      <span className="text-gray-800">{String(value)}</span>
+      <span className="text-gray-800 break-all">{String(value)}</span>
     </div>
   );
 };
@@ -228,7 +238,6 @@ const InsuranceRecords: React.FC = () => {
   const [page, setPage] = useState(1);
 
   const [editing, setEditing] = useState<Insurance | null>(null);
-  const [adding, setAdding] = useState<Partial<Insurance> | null>(null);
   const [fullView, setFullView] = useState<any>(null);
 
   useEffect(() => {
@@ -276,29 +285,39 @@ const InsuranceRecords: React.FC = () => {
     fetchInsurance();
   };
 
-  const handleAddSave = async () => {
-    if (!adding) return;
-    await addInsurance(adding);
-    Swal.fire("Added", "", "success");
-    setAdding(null);
-    fetchInsurance();
-  };
 
-  const Input = ({
+
+  /* -----------------------------------------------------
+     HELPER COMPONENTS (EXTRACTED)
+  ----------------------------------------------------- */
+
+  const FormInput = ({
     label,
     value,
     onChange,
+    type = "text",
   }: {
     label: string;
     value: any;
+    type?: string;
     onChange: (v: any) => void;
   }) => (
-    <input
-      className="w-full border px-3 py-2 rounded"
-      placeholder={label}
-      value={safe(value)}
-      onChange={(e) => onChange(e.target.value)}
-    />
+    <div>
+      <label className="text-sm font-medium block mb-1">{label}</label>
+      <input
+        type={type}
+        className="w-full border px-3 py-2 rounded"
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  );
+
+  const Section = ({ title, children }: any) => (
+    <div className="border rounded-lg p-5 space-y-4">
+      <h4 className="font-semibold text-gray-700 pb-2 border-b">{title}</h4>
+      {children}
+    </div>
   );
 
   const InsuranceForm = ({
@@ -314,88 +333,59 @@ const InsuranceRecords: React.FC = () => {
     const updateNested = (parent: string, key: string, value: any) =>
       setData({ ...data, [parent]: { ...(data[parent] || {}), [key]: value } });
 
-    const Input = ({
-      label,
-      value,
-      onChange,
-      type = "text",
-    }: {
-      label: string;
-      value: any;
-      type?: string;
-      onChange: (v: any) => void;
-    }) => (
-      <div>
-        <label className="text-sm font-medium block mb-1">{label}</label>
-        <input
-          type={type}
-          className="w-full border px-3 py-2 rounded"
-          value={value ?? ""}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </div>
-    );
-
-    const Section = ({ title, children }: any) => (
-      <div className="border rounded-lg p-5 space-y-4">
-        <h4 className="font-semibold text-gray-700 pb-2 border-b">{title}</h4>
-        {children}
-      </div>
-    );
-
     return (
       <div className="space-y-8">
         {/* BASIC INSURANCE INFO */}
         <Section title="Insurance Details">
           <div className="grid grid-cols-2 gap-6">
-            <Input
+            <FormInput
               label="Insurance Provider"
               value={data.insuranceProvider}
               onChange={(v) => update("insuranceProvider", v)}
             />
-            <Input
+            <FormInput
               label="Plan Name"
               value={data.planName}
               onChange={(v) => update("planName", v)}
             />
-            <Input
+            <FormInput
               label="Plan Type"
               value={data.planType}
               onChange={(v) => update("planType", v)}
             />
-            <Input
+            <FormInput
               label="Policy Number"
               value={data.policyNumber}
               onChange={(v) => update("policyNumber", v)}
             />
-            <Input
+            <FormInput
               label="Group Number"
               value={data.groupNumber}
               onChange={(v) => update("groupNumber", v)}
             />
-            <Input
+            <FormInput
               label="Phone"
               value={data.phone}
               onChange={(v) => update("phone", v)}
             />
-            <Input
+            <FormInput
               label="Effective Date"
               type="date"
               value={data.effectiveDate?.substring(0, 10)}
               onChange={(v) => update("effectiveDate", v)}
             />
-            <Input
+            <FormInput
               label="Expiration Date"
               type="date"
               value={data.expirationDate?.substring(0, 10)}
               onChange={(v) => update("expirationDate", v)}
             />
-            <Input
+            <FormInput
               label="Status"
               value={data.status}
               onChange={(v) => update("status", v)}
             />
-            <Input
+            <FormInput
               label="Primary Insured"
               value={data.primaryInsured}
               onChange={(v) => update("primaryInsured", v)}
@@ -406,27 +396,27 @@ const InsuranceRecords: React.FC = () => {
         {/* ADDRESS */}
         <Section title="Insurance Address">
           <div className="grid grid-cols-2 gap-6">
-            <Input
+            <FormInput
               label="Line 1"
               value={data.address?.line1}
               onChange={(v) => updateNested("address", "line1", v)}
             />
-            <Input
+            <FormInput
               label="City"
               value={data.address?.city}
               onChange={(v) => updateNested("address", "city", v)}
             />
-            <Input
+            <FormInput
               label="State"
               value={data.address?.state}
               onChange={(v) => updateNested("address", "state", v)}
             />
-            <Input
+            <FormInput
               label="Postal Code"
               value={data.address?.postalCode}
               onChange={(v) => updateNested("address", "postalCode", v)}
             />
-            <Input
+            <FormInput
               label="Country"
               value={data.address?.country}
               onChange={(v) => updateNested("address", "country", v)}
@@ -437,17 +427,17 @@ const InsuranceRecords: React.FC = () => {
         {/* BILLING CONTACT */}
         <Section title="Billing Contact">
           <div className="grid grid-cols-2 gap-6">
-            <Input
+            <FormInput
               label="Name"
               value={data.billingContact?.name}
               onChange={(v) => updateNested("billingContact", "name", v)}
             />
-            <Input
+            <FormInput
               label="Email"
               value={data.billingContact?.email}
               onChange={(v) => updateNested("billingContact", "email", v)}
             />
-            <Input
+            <FormInput
               label="Phone"
               value={data.billingContact?.phone}
               onChange={(v) => updateNested("billingContact", "phone", v)}
@@ -458,27 +448,27 @@ const InsuranceRecords: React.FC = () => {
         {/* BENEFITS */}
         <Section title="Benefits Summary">
           <div className="grid grid-cols-2 gap-6">
-            <Input
+            <FormInput
               label="Deductible"
               value={data.benefitsSummary?.deductible}
               onChange={(v) => updateNested("benefitsSummary", "deductible", v)}
             />
-            <Input
+            <FormInput
               label="Out of Pocket Max"
               value={data.benefitsSummary?.outOfPocketMax}
               onChange={(v) => updateNested("benefitsSummary", "outOfPocketMax", v)}
             />
-            <Input
+            <FormInput
               label="Coinsurance"
               value={data.benefitsSummary?.coinsurance}
               onChange={(v) => updateNested("benefitsSummary", "coinsurance", v)}
             />
-            <Input
+            <FormInput
               label="Copay"
               value={data.benefitsSummary?.copay}
               onChange={(v) => updateNested("benefitsSummary", "copay", v)}
             />
-            <Input
+            <FormInput
               label="Currency"
               value={data.benefitsSummary?.currency}
               onChange={(v) => updateNested("benefitsSummary", "currency", v)}
@@ -489,30 +479,30 @@ const InsuranceRecords: React.FC = () => {
         {/* POLICY HOLDER */}
         <Section title="Policy Holder">
           <div className="grid grid-cols-2 gap-6">
-            <Input
+            <FormInput
               label="First Name"
               value={data.policyHolder?.firstName}
               onChange={(v) => updateNested("policyHolder", "firstName", v)}
             />
-            <Input
+            <FormInput
               label="Last Name"
               value={data.policyHolder?.lastName}
               onChange={(v) => updateNested("policyHolder", "lastName", v)}
             />
-            <Input
+            <FormInput
               label="Relation"
               value={data.policyHolder?.relationToPatient}
               onChange={(v) =>
                 updateNested("policyHolder", "relationToPatient", v)
               }
             />
-            <Input
+            <FormInput
               label="Member ID"
               value={data.policyHolder?.memberId}
               onChange={(v) => updateNested("policyHolder", "memberId", v)}
             />
 
-            <Input
+            <FormInput
               type="date"
               label="DOB"
               value={data.policyHolder?.dob?.substring(0, 10)}
@@ -525,7 +515,7 @@ const InsuranceRecords: React.FC = () => {
         <Section title="Coverage Limits">
           {(data.coverageLimits || []).map((limit: any, i: number) => (
             <div key={i} className="border p-4 rounded-lg bg-gray-50 space-y-3">
-              <Input
+              <FormInput
                 label="Type"
                 value={limit.type}
                 onChange={(v) => {
@@ -534,7 +524,7 @@ const InsuranceRecords: React.FC = () => {
                   update("coverageLimits", copy);
                 }}
               />
-              <Input
+              <FormInput
                 label="Amount"
                 value={limit.amount}
                 onChange={(v) => {
@@ -543,7 +533,7 @@ const InsuranceRecords: React.FC = () => {
                   update("coverageLimits", copy);
                 }}
               />
-              <Input
+              <FormInput
                 label="Currency"
                 value={limit.currency}
                 onChange={(v) => {
@@ -584,7 +574,7 @@ const InsuranceRecords: React.FC = () => {
         <Section title="Documents">
           {(data.documents || []).map((doc: any, i: number) => (
             <div key={i} className="border p-4 rounded-lg bg-gray-50 space-y-3">
-              <Input
+              <FormInput
                 label="Document Name"
                 value={doc.name}
                 onChange={(v) => {
@@ -593,15 +583,35 @@ const InsuranceRecords: React.FC = () => {
                   update("documents", copy);
                 }}
               />
-              <Input
-                label="Document URL"
-                value={doc.url}
-                onChange={(v) => {
-                  const copy = [...data.documents];
-                  copy[i].url = v;
-                  update("documents", copy);
-                }}
-              />
+
+              {/* File Upload Logic */}
+              <div>
+                <label className="text-sm font-medium block mb-1">Upload File</label>
+                <input
+                  type="file"
+                  className="w-full border px-3 py-2 rounded bg-white"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    // Convert to Base64
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = () => {
+                      const base64 = reader.result as string;
+                      const copy = [...data.documents];
+
+                      // Auto-fill name if empty
+                      if (!copy[i].name) copy[i].name = file.name;
+
+                      copy[i].data = base64; // Set Base64 Data
+                      copy[i].url = ""; // Clear URL if using file
+                      update("documents", copy);
+                    };
+                  }}
+                />
+                {doc.data && <p className="text-xs text-green-600 mt-1">✓ File loaded ({doc.data.length} bytes)</p>}
+              </div>
 
               <button
                 className="px-3 py-1 bg-red-500 text-white rounded text-xs"
@@ -622,7 +632,7 @@ const InsuranceRecords: React.FC = () => {
             onClick={() =>
               update("documents", [
                 ...(data.documents || []),
-                { name: "", url: "" },
+                { name: "", url: "", data: "" },
               ])
             }
           >
@@ -632,7 +642,7 @@ const InsuranceRecords: React.FC = () => {
 
         {/* METADATA */}
         <Section title="Metadata">
-          <Input
+          <FormInput
             label="Uploaded By"
             value={data.metadata?.uploadedBy}
             onChange={(v) => updateNested("metadata", "uploadedBy", v)}
@@ -667,13 +677,6 @@ const InsuranceRecords: React.FC = () => {
               setPage(1);
             }}
           />
-
-          <button
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg"
-            onClick={() => setAdding({})}
-          >
-            <PlusIcon className="w-5 h-5" /> Add
-          </button>
 
           <button
             className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg"
@@ -767,36 +770,6 @@ const InsuranceRecords: React.FC = () => {
         )}
       </div>
 
-      {/* ADD MODAL */}
-      {adding && (
-        <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
-          onClick={() => setAdding(null)}
-        >          <div className="bg-white w-[900px] p-6 rounded-lg shadow-lg space-y-6 max-h-[95vh] overflow-auto" onClick={(e) => e.stopPropagation()}
-        >
-            <h3 className="text-xl font-semibold border-b pb-2">
-              Add Insurance
-            </h3>
-
-            <InsuranceForm data={adding} setData={setAdding} />
-
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button
-                className="px-4 py-2 bg-gray-400 rounded"
-                onClick={() => setAdding(null)}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-4 py-2 bg-blue-600 text-white rounded"
-                onClick={handleAddSave}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* EDIT MODAL — NOW FULL FIELD EDITOR */}
       {editing && (
@@ -809,7 +782,7 @@ const InsuranceRecords: React.FC = () => {
               Edit Insurance (All Fields)
             </h3>
 
-            <DynamicInsuranceEditForm data={editing} setData={setEditing} />
+            <InsuranceForm data={editing} setData={setEditing} />
 
             <div className="flex justify-end gap-3 pt-4 border-t">
               <button
@@ -833,8 +806,8 @@ const InsuranceRecords: React.FC = () => {
       {fullView && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setFullView(null)}
         >
-          <div className="bg-white w-[900px] rounded-lg shadow-lg max-h-[95vh] overflow-auto"   onClick={(e) => e.stopPropagation()}
->
+          <div className="bg-white w-[900px] rounded-lg shadow-lg max-h-[95vh] overflow-auto" onClick={(e) => e.stopPropagation()}
+          >
             <InsuranceDetailsFull data={fullView} />
 
             <div className="p-4 border-t text-right">

@@ -10,6 +10,8 @@ import {
   Plus,
 } from "lucide-react";
 import Swal from "sweetalert2";
+import { insuranceApi } from "../../../api/insurance.api";
+import { Insurance } from "../../../api/types";
 
 type PatientForm = {
   firstName: string;
@@ -79,6 +81,7 @@ const PatientManagement: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [patientReports, setPatientReports] = useState<any[]>([]);
   const [form, setForm] = useState<PatientForm>(emptyForm());
+  const [unassignedInsurance, setUnassignedInsurance] = useState<Insurance[]>([]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,6 +94,23 @@ const PatientManagement: React.FC = () => {
     // reset page when filter changes
     setCurrentPage(1);
   }, [filtered]);
+
+  // Fetch unassigned insurance when form opens
+  useEffect(() => {
+    if (openForm && !editing) {
+      fetchUnassignedInsurance();
+    }
+  }, [openForm, editing]);
+
+  const fetchUnassignedInsurance = async () => {
+    try {
+      const data = await insuranceApi.getUnassignedInsurance();
+      setUnassignedInsurance(data);
+    } catch (error) {
+      console.error("Failed to fetch unassigned insurance:", error);
+      setUnassignedInsurance([]);
+    }
+  };
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice(
@@ -201,6 +221,7 @@ const PatientManagement: React.FC = () => {
         phone: form.emergencyContact.phone,
       },
       insurance: form.insurance.filter((i) => !!i && i.trim() !== ""),
+      insuranceIds: form.insurance.filter((i) => !!i && i.trim() !== ""),
     };
 
     try {
@@ -546,12 +567,27 @@ const PatientManagement: React.FC = () => {
               <div className="space-y-2 mt-2">
                 {form.insurance.map((ins, idx) => (
                   <div key={idx} className="flex gap-2 items-center">
-                    <input
-                      className="flex-1 border px-3 py-2 rounded-lg"
-                      value={ins}
-                      placeholder="Insurance ID"
-                      onChange={(e) => handleInsuranceChange(idx, e.target.value)}
-                    />
+                    {!editing && unassignedInsurance.length > 0 ? (
+                      <select
+                        className="flex-1 border px-3 py-2 rounded-lg"
+                        value={ins}
+                        onChange={(e) => handleInsuranceChange(idx, e.target.value)}
+                      >
+                        <option value="">Select Insurance</option>
+                        {unassignedInsurance.map((insurance) => (
+                          <option key={insurance._id} value={insurance._id}>
+                            {insurance.insuranceProvider} - {insurance.policyNumber} ({insurance.planName})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        className="flex-1 border px-3 py-2 rounded-lg"
+                        value={ins}
+                        placeholder="Insurance ID"
+                        onChange={(e) => handleInsuranceChange(idx, e.target.value)}
+                      />
+                    )}
                     <button
                       className="px-2 py-1 rounded bg-red-50"
                       onClick={() => handleRemoveInsurance(idx)}

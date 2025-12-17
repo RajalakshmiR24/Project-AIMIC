@@ -55,14 +55,14 @@ const AllClaimsList: React.FC = () => {
                   <td className="p-3 border">{c.claimNumber}</td>
 
                   <td className="p-3 border">
-                    {c.patientId?.fullName}
+                    <div className="font-medium text-gray-900">{c.patientId?.patientCode}</div>
                     <div className="text-xs text-gray-500">
-                      {c.patientId?.email}
+                      {c.patientId?.fullName}
                     </div>
                   </td>
 
                   <td className="p-3 border">
-                    {c.insuranceId?.planName}
+                    <div className="font-medium text-gray-900">{c.insuranceId?.insuranceId}</div>
                     <div className="text-xs text-gray-500">
                       {c.insuranceId?.policyNumber}
                     </div>
@@ -71,13 +71,12 @@ const AllClaimsList: React.FC = () => {
                   <td className="p-3 border">₹{c.billedAmount}</td>
 
                   <td
-                    className={`p-3 border capitalize ${
-                      c.claimStatus === "Approved"
+                    className={`p-3 border capitalize ${c.claimStatus === "Approved"
                         ? "text-green-600 font-semibold"
                         : c.claimStatus === "Rejected"
-                        ? "text-red-600 font-semibold"
-                        : "text-gray-700"
-                    }`}
+                          ? "text-red-600 font-semibold"
+                          : "text-gray-700"
+                      }`}
                   >
                     {c.claimStatus}
                   </td>
